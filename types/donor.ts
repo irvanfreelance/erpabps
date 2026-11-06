@@ -1,0 +1,22 @@
+export type DonorListRow = {
+  id: string;
+  no_hp_canonical: string;
+  nama_lengkap: string;
+  email: string | null;
+  status_kontak: string;
+  segmen_rfm: string | null;
+  skor_r: number | null;
+  skor_f: number | null;
+  skor_m: number | null;
+  tags: string[];
+  assigned_to: string | null;
+  assigned_nama: string | null;
+  dynamic: Record<string, unknown>;
+  follow_up_status: string | null;
+  follow_up_due_date: string | null;
+  last_donation_at: string | null;
+  last_donation_nominal: string | null;
+  last_donation_program_nama: string | null;
+  total_donation_lifetime: string;
+  total_donation_count: number;
+};
