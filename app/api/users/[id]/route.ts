@@ -7,7 +7,7 @@ import { jsonSafe } from "@/lib/utils/serialize";
 import { updateUserSchema } from "@/lib/validators/user";
 
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const g = await guard("users", "config");
+  const g = await guard("users", "update");
   if (g.error) return g.error;
   const { id } = await ctx.params;
   const parsed = updateUserSchema.safeParse(await req.json());
@@ -39,7 +39,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const g = await guard("users", "config");
+  const g = await guard("users", "update");
   if (g.error) return g.error;
   const { id } = await ctx.params;
   if (id === g.session!.user.id) {

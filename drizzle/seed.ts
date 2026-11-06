@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { hash } from "bcryptjs";
 import { neon } from "@neondatabase/serverless";
+import { BANK_NAMES, TAX_STATUSES } from "../lib/hrd/static-options";
 
 config({ path: ".env.local" });
 config();
@@ -233,6 +234,26 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
     );
   }
 
+  const ranks: [string, string, number][] = [
+    ["CREW", "Crew", 10],
+    ["STAFF", "Staff", 20],
+    ["SPV", "Supervisor", 30],
+    ["MANAGER", "Manager", 40],
+  ];
+  for (const [code, name, sort] of ranks) {
+    await sql.query(
+      `INSERT INTO ranks (code, name, sort_order)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order, updated_at = now()`,
+      [code, name, sort],
+    );
+  }
+  await sql.query(
+    `INSERT INTO setting_definitions (key, category, label, value_type, default_value, allowed_scopes, is_locked)
+     VALUES ('contract.remind_days', 'contract', 'Hari pengingat akhir kontrak', 'integer', '{"v":30}', '{org}', FALSE)
+     ON CONFLICT (key) DO NOTHING`,
+  );
+
   const stages: [string, string, number, number][] = [
     ["training_1m", "Training 1 bulan", 1, 1],
     ["training_3m", "Training 3 bulan", 3, 2],
@@ -299,6 +320,7 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
     if (isActive) active += 1;
     else draft += 1;
   }
+  await seedDemoProfiles(sql);
   console.log(`Roster: active=${active} draft=${draft} payroll_runs=0`);
 
   if (!actorId) {
@@ -331,6 +353,7 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
       ('attendance.late_deduction_mode', 'attendance', 'Mode denda telat', 'enum', '{"v":"none"}', '{org,pay_group,position,employee}', FALSE),
       ('weekly.total_hours_basis', 'weekly', 'Dasar jam dapur', 'enum', '{"v":"raw_clock_in"}', '{pay_group,position,employee}', FALSE),
       ('period.monthly_payday_day', 'period', 'Tanggal gaji bulanan', 'integer', '{"v":1}', '{pay_group}', FALSE),
+      ('contract.remind_days', 'contract', 'Hari pengingat akhir kontrak', 'integer', '{"v":null}', '{org}', FALSE),
       ('system.public_api', 'system', 'API publik', 'boolean', '{"v":false}', '{org}', TRUE)
      ON CONFLICT (key) DO NOTHING`,
   );
@@ -345,6 +368,202 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
        WHERE v.definition_id = d.id AND v.scope_type = 'org' AND v.status = 'active'
      )`,
     [actorId],
+  );
+}
+
+function isoDate(value: unknown) {
+  if (value == null || value === "") return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
+async function seedDemoProfiles(sql: Sql) {
+  const ranks = rowsOf(await sql.query(`SELECT id, code FROM ranks WHERE deleted_at IS NULL ORDER BY sort_order`));
+  const positions = rowsOf(await sql.query(`SELECT id FROM positions WHERE deleted_at IS NULL ORDER BY name`));
+  const groups = rowsOf(await sql.query(`SELECT id FROM pay_groups ORDER BY name`));
+  const locations = rowsOf(await sql.query(`SELECT id FROM locations WHERE deleted_at IS NULL ORDER BY name`));
+  const stages = rowsOf(
+    await sql.query(`SELECT id, code FROM contract_stage_options ORDER BY sort_order`),
+  );
+  const gapok = rowsOf(await sql.query(`SELECT id FROM salary_components WHERE code = 'GAPOK' LIMIT 1`));
+  const actor = rowsOf(await sql.query(`SELECT id FROM users ORDER BY id LIMIT 1`));
+  const employees = rowsOf(
+    await sql.query(
+      `SELECT id, full_name, employee_number, join_date, position_id, pay_group_id, location_id, rank_id
+       FROM employees WHERE deleted_at IS NULL ORDER BY id`,
+    ),
+  );
+  const usedNums = new Set(
+    employees.map((e) => String(e.employee_number ?? "")).filter((n) => /^CW\d{3}$/.test(n)),
+  );
+  let seq = 1;
+  const nextCw = () => {
+    while (usedNums.has(`CW${String(seq).padStart(3, "0")}`)) seq += 1;
+    const code = `CW${String(seq).padStart(3, "0")}`;
+    usedNums.add(code);
+    seq += 1;
+    return code;
+  };
+
+  const genders = ["female", "male"] as const;
+  const maritals = ["married", "unmarried", "married", "divorced"] as const;
+  const empStatus = ["permanent", "contract", "contract", "training"] as const;
+  const levels = ["SMA", "SMK", "D3", "S1"] as const;
+  const supervisorId =
+    employees.find((e) => String(e.full_name).toLowerCase().includes("manager") || String(e.full_name).toLowerCase().includes("dahlia"))
+      ?.id ?? employees[0]?.id;
+
+  for (let i = 0; i < employees.length; i += 1) {
+    const e = employees[i];
+    const id = String(e.id);
+    const number = e.employee_number ? String(e.employee_number) : nextCw();
+    const fallbackJoin = `2024-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 27) + 1).padStart(2, "0")}`;
+    const join = isoDate(e.join_date) ?? fallbackJoin;
+    const birthY = 1988 + (i % 12);
+    const birth = `${birthY}-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 27) + 1).padStart(2, "0")}`;
+    const rank = ranks[i % Math.max(ranks.length, 1)];
+    const pos = e.position_id ?? positions[i % Math.max(positions.length, 1)]?.id;
+    const group = e.pay_group_id ?? groups[i % Math.max(groups.length, 1)]?.id;
+    const loc = e.location_id ?? locations[i % Math.max(locations.length, 1)]?.id;
+    const boss = supervisorId && String(supervisorId) !== id ? supervisorId : null;
+    await sql.query(
+      `UPDATE employees SET
+         employee_number = COALESCE(employee_number, $2),
+         gender = COALESCE(gender, $3),
+         marital_status = COALESCE(marital_status, $4),
+         employment_status = COALESCE(NULLIF(employment_status, 'contract'), $5, employment_status),
+         birth_date = COALESCE(birth_date, $6::date),
+         address = COALESCE(address, $7),
+         join_date = COALESCE(join_date, $8::date),
+         rank_id = COALESCE(rank_id, $9::bigint),
+         position_id = COALESCE(position_id, $10::bigint),
+         pay_group_id = COALESCE(pay_group_id, $11::bigint),
+         location_id = COALESCE(location_id, $12::bigint),
+         supervisor_employee_id = COALESCE(supervisor_employee_id, $13::bigint),
+         bank_name = COALESCE(bank_name, $14),
+         bank_account_number = COALESCE(bank_account_number, $15),
+         bank_account_name = COALESCE(bank_account_name, $16),
+         npwp = COALESCE(npwp, $17),
+         bpjs_kesehatan_id = COALESCE(bpjs_kesehatan_id, $18),
+         bpjs_tk_id = COALESCE(bpjs_tk_id, $19),
+         tax_status = COALESCE(tax_status, $20),
+         updated_at = now()
+       WHERE id = $1::bigint`,
+      [
+        id,
+        number,
+        genders[i % 2],
+        maritals[i % maritals.length],
+        empStatus[i % empStatus.length],
+        birth,
+        `Jl. Raya Baros No. ${12 + i}, Kec. Baros`,
+        join,
+        rank ? String(rank.id) : null,
+        pos ? String(pos) : null,
+        group ? String(group) : null,
+        loc ? String(loc) : null,
+        boss ? String(boss) : null,
+        BANK_NAMES[i % BANK_NAMES.length],
+        `8801${String(100000 + i).slice(-6)}`,
+        String(e.full_name),
+        `${String(10 + (i % 89)).padStart(2, "0")}0${String(1000000 + i).slice(-7)}${String(100 + i).slice(-3)}000`.slice(0, 15),
+        `000${String(10_000_000_000 + i).slice(-10)}`,
+        `00${String(1_000_000_000 + i).slice(-9)}`,
+        TAX_STATUSES[i % TAX_STATUSES.length],
+      ],
+    );
+
+    const edu = await sql.query(`SELECT 1 FROM employee_educations WHERE employee_id = $1 LIMIT 1`, [id]);
+    if (!edu.length) {
+      await sql.query(
+        `INSERT INTO employee_educations (employee_id, level, institution, major, start_year, end_year)
+         VALUES ($1::bigint, $2, $3, $4, $5, $6)`,
+        [
+          id,
+          levels[i % levels.length],
+          i % 2 === 0 ? "SMKN 1 Sukabumi" : "Universitas Muhammadiyah Sukabumi",
+          i % 2 === 0 ? "Tata Boga" : "Manajemen",
+          birthY + 16,
+          birthY + 19,
+        ],
+      );
+    }
+
+    const fam = await sql.query(`SELECT 1 FROM employee_family_members WHERE employee_id = $1 LIMIT 1`, [id]);
+    if (!fam.length) {
+      const rel = genders[i % 2] === "female" ? "husband" : "wife";
+      await sql.query(
+        `INSERT INTO employee_family_members (employee_id, relation, full_name, birth_date)
+         VALUES ($1::bigint, $2, $3, $4::date)`,
+        [id, rel, `Keluarga ${String(e.full_name).split(" ")[0]}`, `${birthY + 2}-05-12`],
+      );
+      if (i % 2 === 0) {
+        await sql.query(
+          `INSERT INTO employee_family_members (employee_id, relation, full_name, birth_date)
+           VALUES ($1::bigint, 'child', $2, $3::date)`,
+          [id, `Anak ${String(e.full_name).split(" ")[0]}`, `${2015 + (i % 8)}-08-20`],
+        );
+      }
+    }
+
+    const con = await sql.query(`SELECT 1 FROM employment_contracts WHERE employee_id = $1 LIMIT 1`, [id]);
+    const s1 = stages.find((s) => s.code === "training_1m");
+    const s3 = stages.find((s) => s.code === "training_3m");
+    const sy = stages.find((s) => s.code === "contract_1y");
+    if (!con.length && s1 && s3 && sy) {
+      const start = new Date(`${join}T00:00:00Z`);
+      const d1 = new Date(start);
+      d1.setUTCMonth(d1.getUTCMonth() + 1);
+      const d3 = new Date(d1);
+      d3.setUTCMonth(d3.getUTCMonth() + 3);
+      const dY = new Date(d3);
+      dY.setUTCFullYear(dY.getUTCFullYear() + 1);
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      await sql.query(
+        `INSERT INTO employment_contracts (employee_id, stage_option_id, sequence_no, start_date, end_date, status, created_by)
+         VALUES
+           ($1::bigint, $2::bigint, 1, $5::date, $6::date, 'completed', $9::bigint),
+           ($1::bigint, $3::bigint, 2, $6::date, $7::date, 'completed', $9::bigint),
+           ($1::bigint, $4::bigint, 3, $7::date, $8::date, 'active', $9::bigint)`,
+        [
+          id,
+          String(s1.id),
+          String(s3.id),
+          String(sy.id),
+          iso(start),
+          iso(d1),
+          iso(d3),
+          iso(dY),
+          actor[0] ? String(actor[0].id) : null,
+        ],
+      );
+    }
+
+    if (gapok[0]) {
+      const sc = await sql.query(
+        `SELECT 1 FROM employee_salary_components WHERE employee_id = $1 AND salary_component_id = $2 LIMIT 1`,
+        [id, String(gapok[0].id)],
+      );
+      if (!sc.length) {
+        await sql.query(
+          `INSERT INTO employee_salary_components (employee_id, salary_component_id, amount, effective_from)
+           VALUES ($1::bigint, $2::bigint, $3, $4::date)`,
+          [id, String(gapok[0].id), 2_500_000 + i * 150_000, join],
+        );
+      }
+    }
+  }
+  await sql.query(
+    `UPDATE employment_contracts c
+     SET end_date = CURRENT_DATE + (((c.id % 18)::int + 7) * INTERVAL '1 day')
+     WHERE c.status = 'active'
+       AND c.employee_id IN (
+         SELECT id FROM employees WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 4
+       )`,
   );
 }
 

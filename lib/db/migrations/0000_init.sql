@@ -194,7 +194,12 @@ CREATE TABLE IF NOT EXISTS employees (
     phone                  VARCHAR(20),
     nik                    VARCHAR(20),
     npwp                   VARCHAR(30),
+    bpjs_kesehatan_id      VARCHAR(20),
+    bpjs_tk_id             VARCHAR(20),
+    tax_status             VARCHAR(10),
     gender                 VARCHAR(10),
+    marital_status         VARCHAR(20),
+    address                TEXT,
     birth_date             DATE,
     join_date              DATE,
     record_status          VARCHAR(20) NOT NULL DEFAULT 'draft',
@@ -229,6 +234,17 @@ CREATE TABLE IF NOT EXISTS employees (
     ),
     CONSTRAINT ck_payroll_only_active CHECK (in_payroll = FALSE OR record_status = 'active')
 );
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS marital_status VARCHAR(20);
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS ktp_image_url TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS bank_name VARCHAR(100);
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS bank_account_number VARCHAR(50);
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS bank_account_name VARCHAR(255);
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS npwp VARCHAR(30);
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS bpjs_kesehatan_id VARCHAR(20);
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS bpjs_tk_id VARCHAR(20);
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS tax_status VARCHAR(10);
 
 CREATE INDEX IF NOT EXISTS idx_emp_group ON employees(pay_group_id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_emp_supervisor ON employees(supervisor_employee_id);
@@ -483,6 +499,8 @@ CREATE TABLE IF NOT EXISTS employment_contracts (
     CONSTRAINT ck_contract_dates CHECK (end_date > start_date),
     CONSTRAINT uq_contract_seq UNIQUE (employee_id, sequence_no)
 );
+
+ALTER TABLE employment_contracts ALTER COLUMN created_by DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS outlet_revenues (
     id              BIGSERIAL PRIMARY KEY,

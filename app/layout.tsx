@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Source_Sans_3 } from "next/font/google";
 import { Toaster } from "sonner";
+import { ConfirmHost } from "@/components/ui/confirm-toast";
 import { GET as getOrgProfile } from "@/app/api/org-profile/route";
 import { fromRoute } from "@/lib/api/from-route";
 import { fallbackOrg, type OrgProfile } from "@/types/org";
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full">
         {children}
         <Toaster richColors position="top-right" />
+        <ConfirmHost />
       </body>
     </html>
   );

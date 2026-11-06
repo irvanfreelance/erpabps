@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { SearchSelect } from "@/components/shared/search-select";
 import { btnSecondary } from "@/components/ui/button";
 import { downloadXlsx } from "@/lib/utils/export-xlsx";
-import { formatCell } from "@/lib/utils/format";
+import { fmtRp, formatCell } from "@/lib/utils/format";
 
 export type Column<T> = {
   key: string;
@@ -14,6 +14,7 @@ export type Column<T> = {
   exportValue?: (row: T) => string | number | null | undefined;
   className?: string;
   numeric?: boolean;
+  money?: boolean;
   hideable?: boolean;
   defaultHidden?: boolean;
   includeInExport?: boolean;
@@ -21,8 +22,15 @@ export type Column<T> = {
 
 const PAGE_SIZES = [10, 25, 50, 100] as const;
 
-function numericClass(numeric?: boolean) {
-  return numeric ? "w-px whitespace-nowrap text-right tabular-nums" : "";
+function numericClass(numeric?: boolean, money?: boolean) {
+  return numeric || money ? "w-px whitespace-nowrap text-right tabular-nums" : "";
+}
+
+function cellText<T>(c: Column<T>, row: T) {
+  if (c.render) return c.render(row);
+  const raw = (row as Record<string, unknown>)[c.key];
+  if (c.money) return fmtRp(raw as string | number | null);
+  return formatCell(raw);
 }
 
 export function DataTable<T extends { id?: string | number }>({
@@ -129,7 +137,7 @@ export function DataTable<T extends { id?: string | number }>({
             Kolom
           </button>
           {colsOpen && (
-            <div className="absolute right-0 z-20 mt-1 max-h-64 w-56 overflow-auto rounded-xl border border-[#e5e5e5] bg-white p-2 shadow-lg">
+            <div className="absolute right-0 z-20 mt-1 max-h-64 w-56 overflow-auto rounded-2xl border-0 bg-[#f7f8f8] p-1 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
               {columns.map((c) => (
                 <label key={c.key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-[#f6fffe]">
                   <input
@@ -188,7 +196,7 @@ export function DataTable<T extends { id?: string | number }>({
       <div className="grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 sm:flex sm:justify-end">
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#ddd] bg-white disabled:opacity-40"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)] text-white disabled:opacity-40"
           disabled={safePage <= 1}
           onClick={() => goto(safePage - 1)}
           aria-label="Halaman sebelumnya"
@@ -200,7 +208,7 @@ export function DataTable<T extends { id?: string | number }>({
         </span>
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#ddd] bg-white disabled:opacity-40"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--accent)] text-white disabled:opacity-40"
           disabled={safePage >= pageCount}
           onClick={() => goto(safePage + 1)}
           aria-label="Halaman berikutnya"
@@ -232,15 +240,15 @@ export function DataTable<T extends { id?: string | number }>({
                 <div className="flex items-start gap-2">
                   <span className="mt-0.5 shrink-0 text-[11px] font-bold text-[#888]">{start + i + 1}.</span>
                   <div className="min-w-0 text-[14px] font-normal text-[#5c5c5c]">
-                    {titleCol?.render ? titleCol.render(row) : formatCell((row as Record<string, unknown>)[titleCol?.key ?? ""])}
+                    {titleCol ? cellText(titleCol, row) : null}
                   </div>
                 </div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
                   {restCols.map((c) => (
-                    <div key={c.key} className={c.numeric ? "min-w-0 text-right" : "min-w-0"}>
+                    <div key={c.key} className={c.numeric || c.money ? "min-w-0 text-right" : "min-w-0"}>
                       <dt className="text-[11px] font-medium text-[#8a8a8a]">{c.label}</dt>
-                      <dd className={`mt-0.5 text-[13px] font-normal text-[#5c5c5c] ${c.numeric ? "whitespace-nowrap tabular-nums" : "truncate"}`}>
-                        {c.render ? c.render(row) : formatCell((row as Record<string, unknown>)[c.key])}
+                      <dd className={`mt-0.5 text-[13px] font-normal text-[#5c5c5c] ${c.numeric || c.money ? "whitespace-nowrap tabular-nums" : "truncate"}`}>
+                        {cellText(c, row)}
                       </dd>
                     </div>
                   ))}
@@ -262,14 +270,14 @@ export function DataTable<T extends { id?: string | number }>({
                 {visibleColumns.map((c) => (
                   <th
                     key={c.key}
-                    className={`cursor-pointer bg-[var(--primary)] px-3 py-2.5 ${numericClass(c.numeric)} ${c.className ?? ""}`}
+                    className={`cursor-pointer bg-[var(--primary)] px-3 py-2.5 ${numericClass(c.numeric, c.money)} ${c.className ?? ""}`}
                     onClick={() => {
                       setSortKey(c.key);
                       setDir((d) => (sortKey === c.key && d === "asc" ? "desc" : "asc"));
                       setPage(1);
                     }}
                   >
-                    <span className={`inline-flex min-h-6 items-center gap-1 ${c.numeric ? "w-full justify-end" : ""}`}>
+                    <span className={`inline-flex min-h-6 items-center gap-1 ${c.numeric || c.money ? "w-full justify-end" : ""}`}>
                       {c.label}
                       {sortKey === c.key ? (dir === "asc" ? " ↑" : " ↓") : ""}
                     </span>
@@ -283,7 +291,10 @@ export function DataTable<T extends { id?: string | number }>({
                 return (
                   <tr
                     key={id}
-                    onClick={() => onRow?.(row)}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("button, a")) return;
+                      onRow?.(row);
+                    }}
                     className={`border-b border-[#f0f0f0] ${onRow ? "cursor-pointer hover:bg-[#f6fffe]" : ""}`}
                   >
                     {selectable && (
@@ -302,8 +313,8 @@ export function DataTable<T extends { id?: string | number }>({
                     )}
                     <td className="px-3 py-2 tabular-nums text-[#888]">{start + i + 1}</td>
                     {visibleColumns.map((c) => (
-                      <td key={c.key} className={`px-3 py-2 font-normal text-[#5c5c5c] ${numericClass(c.numeric)}`}>
-                        {c.render ? c.render(row) : formatCell((row as Record<string, unknown>)[c.key])}
+                      <td key={c.key} className={`px-3 py-2 font-normal text-[#5c5c5c] ${numericClass(c.numeric, c.money)}`}>
+                        {cellText(c, row)}
                       </td>
                     ))}
                   </tr>

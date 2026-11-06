@@ -22,7 +22,8 @@ body {
   font-size: 14px;
 }
 
-a { color: inherit; text-decoration: none; }
+a { text-decoration: none; }
+a:not([class*="bg-"]) { color: inherit; }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
 textarea {
@@ -32,6 +33,22 @@ textarea {
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([class*="border-0"]),
 textarea:not([class*="border-0"]) {
-  border: 1px solid #ddd;
-  border-radius: 0.75rem;
+  border: 1px solid #e8e8e8;
+  border-radius: 1rem;
+}
+
+select {
+  appearance: none;
+  border: 0;
+  outline: none;
+  border-radius: 1rem;
+  background-color: #f3f5f4;
+  color: #5c5c5c;
+}
+
+select option,
+select optgroup {
+  border: 0;
+  background-color: #f7f8f8;
+  color: #5c5c5c;
 }

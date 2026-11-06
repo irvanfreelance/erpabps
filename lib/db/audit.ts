@@ -17,7 +17,7 @@ export async function logAudit(input: {
       user_id, action, entity_type, entity_id, field_changed,
       value_before, value_after, source
     ) VALUES (
-      ${input.userId ?? null},
+      ${input.userId && input.userId !== "0" ? input.userId : null},
       ${input.action},
       ${input.entityType},
       ${input.entityId ?? null},

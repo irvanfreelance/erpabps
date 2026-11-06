@@ -21,7 +21,7 @@ const schema = z.object({
 
 export async function GET() {
   try {
-    const g = await guard("app_config", "read");
+    const g = await guard("org-profile", "read");
     if (g.error) return g.error;
     const sql = getDb();
     const rows = await sql`SELECT * FROM org_profile WHERE id = 1 LIMIT 1`;
@@ -33,7 +33,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const g = await guard("app_config", "config");
+  const g = await guard("org-profile", "update");
   if (g.error) return g.error;
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);

@@ -19,7 +19,7 @@ async function loadOrg(): Promise<OrgProfile> {
 }
 
 export async function GET(req: Request) {
-  const g = await guard("app_config", "read");
+  const g = await guard("org-profile", "read");
   if (g.error) return g.error;
   const kind = new URL(req.url).searchParams.get("kind") === "favicon" ? "favicon" : "logo";
   const org = await loadOrg();

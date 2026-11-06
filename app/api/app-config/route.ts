@@ -12,7 +12,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const g = await guard("app_config", "config");
+  const g = await guard("settings.rules", "update");
   if (g.error) return g.error;
   const { key, value } = await req.json();
   const sql = getDb();

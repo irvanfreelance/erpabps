@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronDown, Search, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 
 export type SelectOption = { value: string; label: string };
@@ -45,7 +46,9 @@ export function SearchSelect({
   const [remote, setRemote] = useState<SelectOption[]>([]);
   const [loading, setLoading] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [box, setBox] = useState<{ top: number; left: number; width: number; bottom: number } | null>(null);
   const mapRef = useRef(mapRows);
   mapRef.current = mapRows;
 
@@ -89,11 +92,33 @@ export function SearchSelect({
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (root.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setBox(null);
+      return;
+    }
+    function place() {
+      const el = root.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setBox({ top: r.top, left: r.left, width: r.width, bottom: r.bottom });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -112,12 +137,12 @@ export function SearchSelect({
   const selected = source.find((o) => o.value === value) ?? staticOptions?.find((o) => o.value === value);
 
   return (
-    <div ref={root} className={cn("relative min-w-0", className)}>
+    <div ref={root} className={cn("relative min-w-0", open && "z-[80]", className)}>
       <button
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className="flex min-h-10 w-full items-center gap-2 rounded-xl border border-[#ddd] bg-white px-3 text-left text-[13px] disabled:opacity-50"
+        className="flex min-h-11 w-full items-center gap-2 rounded-2xl border-0 bg-[#f3f5f4] px-3 text-left text-[13px] shadow-none outline-none ring-0 disabled:opacity-50"
       >
         <span className={cn("min-w-0 flex-1 truncate font-normal", selected ? "text-[#5c5c5c]" : "text-[#999]")}>
           {selected?.label ?? placeholder}
@@ -138,55 +163,63 @@ export function SearchSelect({
           <ChevronDown size={16} className="shrink-0 text-[#888]" />
         )}
       </button>
-      {open && (
-        <div
-          className={cn(
-            "absolute z-50 w-full min-w-[200px] overflow-hidden rounded-xl border border-[#e4e4e4] bg-white shadow-lg",
-            placement === "top" ? "bottom-full mb-1" : "mt-1",
-          )}
-        >
-          <div className="flex items-center gap-2 border-b px-2 py-1.5">
-            <Search size={14} className="text-[#888]" />
-            <input
-              ref={inputRef}
-              className="min-h-8 w-full border-0 bg-transparent text-[13px] outline-none"
-              placeholder="Ketik untuk mencari…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setOpen(false);
-                if (e.key === "Enter" && filtered[0]) {
-                  onChange(filtered[0].value);
-                  setOpen(false);
-                }
-              }}
-            />
-          </div>
-          <ul className="max-h-56 overflow-auto py-1">
-            {loading && <li className="px-3 py-2 text-[12px] text-[#888]">Memuat…</li>}
-            {!loading && filtered.length === 0 && (
-              <li className="px-3 py-2 text-[12px] text-[#888]">Tidak ada hasil</li>
-            )}
-            {filtered.map((o) => (
-              <li key={o.value}>
-                <button
-                  type="button"
-                  className={cn(
-                    "w-full px-3 py-2 text-left text-[13px] hover:bg-[#f6fffe]",
-                    o.value === value && "bg-[#eef8f6] font-semibold text-[var(--primary)]",
-                  )}
-                  onClick={() => {
-                    onChange(o.value);
+      {open &&
+        box &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[300] min-w-[200px] overflow-hidden rounded-2xl border-0 bg-[#f7f8f8] p-1 shadow-[0_12px_32px_rgba(0,0,0,0.16)]"
+            style={{
+              left: Math.min(box.left, window.innerWidth - Math.max(box.width, 200) - 8),
+              width: Math.max(box.width, 200),
+              ...(placement === "top" || window.innerHeight - box.bottom < 200
+                ? { bottom: window.innerHeight - box.top + 4 }
+                : { top: box.bottom + 4 }),
+            }}
+          >
+            <div className="flex items-center gap-2 rounded-xl bg-white/80 px-2 py-1.5">
+              <Search size={14} className="text-[#888]" />
+              <input
+                ref={inputRef}
+                className="min-h-8 w-full border-0 bg-transparent text-[13px] outline-none ring-0"
+                placeholder="Ketik untuk mencari…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setOpen(false);
+                  if (e.key === "Enter" && filtered[0]) {
+                    onChange(filtered[0].value);
                     setOpen(false);
-                  }}
-                >
-                  {o.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+                  }
+                }}
+              />
+            </div>
+            <ul className="mt-1 max-h-56 overflow-auto">
+              {loading && <li className="px-3 py-2 text-[12px] text-[#888]">Memuat…</li>}
+              {!loading && filtered.length === 0 && (
+                <li className="px-3 py-2 text-[12px] text-[#888]">Tidak ada hasil</li>
+              )}
+              {filtered.map((o) => (
+                <li key={o.value}>
+                  <button
+                    type="button"
+                    className={cn(
+                      "w-full rounded-xl border-0 px-3 py-2 text-left text-[13px] hover:bg-white",
+                      o.value === value && "bg-white font-semibold text-[var(--primary)]",
+                    )}
+                    onClick={() => {
+                      onChange(o.value);
+                      setOpen(false);
+                    }}
+                  >
+                    {o.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

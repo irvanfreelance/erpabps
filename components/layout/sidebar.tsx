@@ -4,59 +4,71 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  Bookmark,
+  CalendarDays,
   ChevronLeft,
   ClipboardList,
   FileText,
-  FolderUp,
+  Gift,
   KeyRound,
   LayoutDashboard,
-  Megaphone,
+  MapPin,
   Menu,
-  Plug,
-  Puzzle,
-  Send,
+  Scale,
   Settings,
   Shield,
-  Tags,
-  Target,
+  Timer,
   Users,
   Wallet,
-  Wrench,
   X,
 } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
-import { NAV } from "@/lib/nav";
+import { navForRole } from "@/lib/nav";
+import type { Role } from "@/types/auth";
 import type { OrgProfile } from "@/types/org";
 
 const ICONS: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
   "/dashboard": LayoutDashboard,
-  "/worklist": ClipboardList,
-  "/donors": Users,
-  "/programs": Bookmark,
-  "/campaigns": Megaphone,
-  "/transactions": Wallet,
-  "/segments": Target,
-  "/blast-batches": Send,
-  "/prospect-notes": FileText,
-  "/vendor-profiles": Plug,
-  "/field-definitions": Settings,
-  "/tags": Tags,
+  "/attendances/clock": Timer,
+  "/attendances": ClipboardList,
+  "/attendances/backdate": Timer,
+  "/schedules": CalendarDays,
+  "/shift-templates": CalendarDays,
+  "/shift-swaps": CalendarDays,
+  "/employees": Users,
+  "/payroll-runs": Wallet,
+  "/payslips": FileText,
+  "/cash-advances": Wallet,
+  "/cash-advances/screening": Scale,
+  "/bonus/outlet-revenues": Gift,
+  "/bonus/monthly": Gift,
+  "/contract-stages": FileText,
+  "/contracts": FileText,
+  "/reports/attendance": ClipboardList,
+  "/reports/payroll": Wallet,
+  "/master/locations": MapPin,
+  "/master/positions": Users,
+  "/master/ranks": Users,
+  "/master/pay-groups": Wallet,
+  "/master/salary-components": Wallet,
+  "/master/holidays": CalendarDays,
+  "/settings": Settings,
+  "/settings/rules": Settings,
   "/users": KeyRound,
-  "/data-imports": FolderUp,
-  "/extensions": Puzzle,
-  "/app-config": Wrench,
+  "/approvals": Scale,
+  "/approvals/policies": Scale,
 };
 
 export function AppShell({
   children,
   userNama,
   userEmail,
+  userRole,
   org,
 }: {
   children: React.ReactNode;
   userNama: string;
   userEmail: string;
+  userRole: Role;
   org: OrgProfile;
 }) {
   const pathname = usePathname();
@@ -148,7 +160,7 @@ export function AppShell({
           )}
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto py-1" aria-label="Menu utama">
-          {NAV.map((g) => (
+          {navForRole(userRole).map((g) => (
             <div key={g.group}>
               {showLabels && (
                 <div className="px-4 pt-3 pb-1 text-[10px] font-bold tracking-widest uppercase opacity-45">{g.group}</div>

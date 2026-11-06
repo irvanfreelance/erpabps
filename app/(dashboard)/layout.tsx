@@ -1,3 +1,4 @@
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { AppShell } from "@/components/layout/sidebar";
 import { getServerSession } from "@/lib/auth/session";
 import { GET as getOrgProfile } from "@/app/api/org-profile/route";
@@ -24,8 +25,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         } as React.CSSProperties
       }
     >
-      <AppShell userNama={session.user.nama} userEmail={session.user.email} org={org}>
-        {children}
+      <AppShell userNama={session.user.nama} userEmail={session.user.email} userRole={session.user.role} org={org}>
+        <NuqsAdapter>{children}</NuqsAdapter>
       </AppShell>
     </div>
   );

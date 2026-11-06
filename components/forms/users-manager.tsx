@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { confirmAction } from "@/components/ui/confirm-toast";
 import { DataTable } from "@/components/data-table/data-table";
 import { SearchSelect } from "@/components/shared/search-select";
 import { ROLES } from "@/lib/validators/user";
@@ -64,7 +65,7 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
   }
 
   async function remove(row: UserRow) {
-    if (!confirm(`Nonaktifkan dan hapus ${row.nama}?`)) return;
+    if (!(await confirmAction(`Nonaktifkan dan hapus ${row.nama}?`, "Hapus"))) return;
     const res = await fetch(`/api/users/${row.id}`, { method: "DELETE" });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));

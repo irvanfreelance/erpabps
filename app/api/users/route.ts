@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const g = await guard("users", "config");
+  const g = await guard("users", "create");
   if (g.error) return g.error;
   const parsed = createUserSchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);

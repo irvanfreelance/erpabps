@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/db/audit";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const g = await guard("app_config", "config");
+  const g = await guard("org-profile", "update");
   if (g.error) return g.error;
   const form = await req.formData();
   const kindRaw = String(form.get("kind") ?? "");
