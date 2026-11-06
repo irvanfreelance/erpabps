@@ -714,9 +714,9 @@ Status mapping in `vendor_profiles.status_mapping` (JSONB).
 - **Timeout:** 8 jam inaktif (NFR-14)
 - **Chrome Extension:** Per-user API token stored in `user_tokens` table, Chrome's `chrome.storage.local` (NOT localStorage)
 
-### 5.2 RBAC — 5 Roles
+### 5.2 RBAC
 
-Matriks dan fungsi `checkPermission(role, resource, action)` di `lib/auth/rbac.ts` tetap. ERP HRD memakai kode `admin`, `supervisor`, dan `read_only` yang sudah ada. `data_analyst` dan `tim_blast` tetap dikenali kode ini. Tidak ada tabel peran baru pada guide ini. Pemetaan produknya ada di PRD bagian 5.
+Fungsi tetap `checkPermission(role, resource, action)` di `lib/auth/rbac.ts`. Kontrak ERP hanya mengenal `superadmin`, `superordinat`, dan `subordinat`. Label `admin`, `supervisor`, `data_analyst`, `tim_blast`, dan `read_only` tidak dipertahankan. Cuplikan di bawah ini adalah kode boilerplate yang masih ada di repo, bukan daftar peran produk. Migrasi label ada di `refs/erd.md` dan belum dijalankan. Matriks menu ada di PRD bagian 5. Isolasi data ada di query, bukan di sembunyinya menu.
 
 | Role | Dashboard | Donors | Import | Export | Assign | Config | Audit |
 |---|---|---|---|---|---|---|---|
@@ -725,6 +725,8 @@ Matriks dan fungsi `checkPermission(role, resource, action)` di `lib/auth/rbac.t
 | `data_analyst` | ✓ | Read+Query | ✓ | ✓ | — | — | Read |
 | `tim_blast` | Worklist | Read+Note | — | — | — | — | — |
 | `read_only` | ✓ | Read | — | — | — | — | — |
+
+Tabel di atas adalah matriks CRM pada kode hari ini. Kontrak ERP menggantinya dengan tiga label dan matriks menu di PRD bagian 5. Jangan menambah peran keempat untuk klaim dinamis.
 
 Implementation:
 
@@ -1067,7 +1069,7 @@ Bila modul absensi dan payroll dikerjakan, route baru diletakkan di tempat yang 
 
 `app_config` dan `org_profile` tetap untuk identitas lembaga. Aturan telat, jam, bonus, dan payday tidak dimasukkan ke `app_config`.
 
-Sesi saat ini di `lib/auth/session.ts` memilih admin aktif pertama. Sugesti: ganti dengan sesi pengguna yang login, tanpa mengubah tabel `users` atau `user_tokens`. Login PIN nomor karyawan tidak menambah kolom kata sandi di `employees`.
+Sesi saat ini di `lib/auth/session.ts` memilih satu akun peran lama. Sugesti, tanpa mengubah pohon folder: baca sesi pengguna yang login dan tolak peran di luar tiga label kontrak. Jangan menambah tabel peran. Login PIN tidak menambah kolom kata sandi di `employees`. Seed karyawan tidak masuk `drizzle/seed.ts` selama tabel HRD belum ada di migrasi. Lihat `refs/seed-hrd.md`.
 
 `audit_logs.donor_id` tetap ada. Panggilan HRD mengisi `entityType` dan membiarkan `donorId` kosong.
 

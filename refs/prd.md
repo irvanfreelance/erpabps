@@ -13,7 +13,7 @@
 
 Dokumen ini memakai Bahasa Indonesia. Angka yang disebut "contoh" bukan konstanta global. Label **Wajib** tidak boleh dimatikan oleh satu saklar lembaga. Label **Default** boleh diubah per scope dan per tanggal.
 
-Nama pribadi, NIK, KK, nomor HP, dan rekening tidak ditulis di dokumen ini. Petugas screening kasbon disebut menurut peran HR, bukan menurut nama.
+Nama pribadi, NIK, KK, nomor HP, dan rekening tidak ditulis di dokumen ini. Screening kasbon dilakukan `superadmin`.
 
 Fragmen terakhir dokumen sumber yang hanya berisi kata "Januari" tidak ditafsirkan.
 
@@ -25,7 +25,7 @@ Fragmen terakhir dokumen sumber yang hanya berisi kata "Januari" tidak ditafsirk
 2. [Cara membaca aturan](#2-cara-membaca-aturan)
 3. [Prinsip produk](#3-prinsip-produk)
 4. [Ruang lingkup](#4-ruang-lingkup)
-5. [Lembaga, admin, dan akses](#5-lembaga-admin-dan-akses)
+5. [Lembaga, peran, menu, dan isolasi](#5-lembaga-peran-menu-dan-isolasi)
 6. [Unit kerja dan kelompok gaji](#6-unit-kerja-dan-kelompok-gaji)
 7. [Presensi](#7-presensi)
 8. [Jadwal shift](#8-jadwal-shift)
@@ -103,11 +103,11 @@ Halaman, route, dan SQL mengikuti guide `refs/trd.md`. Dokumen produk ini tidak 
 
 ### 4.1 Masuk rilis awal
 
-- Profil lembaga dan pengguna admin yang sudah ada di boilerplate.
+- Profil lembaga dan akun `superadmin` pada deployment.
 - Master lokasi, jabatan, kelompok gaji, dan karyawan tanpa data pribadi di seed.
 - Jadwal shift outlet P1, P2, Middle, Shift 3, jam custom, station, dan shift backup.
 - Jadwal dapur mingguan dan jadwal office hour bulanan untuk tim dapur yang bukan crew jam-jaman.
-- Presensi, termasuk catat backdate oleh HR.
+- Presensi, termasuk catat backdate oleh `superadmin`.
 - Izin dan sakit. Tidak ada saldo cuti tahunan pada default.
 - Lembur per jam, tarifnya per kelompok atau per orang.
 - Payroll mingguan dan bulanan, slip, serta rekap.
@@ -128,11 +128,11 @@ Halaman, route, dan SQL mengikuti guide `refs/trd.md`. Dokumen produk ini tidak 
 
 ---
 
-## 5. Lembaga, admin, dan akses
+## 5. Lembaga, peran, menu, dan isolasi
 
 ### 5.1 Identitas lembaga
 
-**Wajib** memakai kolom yang sudah ada:
+**Wajib** memakai kolom `org_profile` yang sudah ada. Satu deployment memakai satu baris `id = 1`. Tidak ada tabel organisasi tambahan.
 
 | Kolom | Pemakaian ERP |
 |---|---|
@@ -140,52 +140,103 @@ Halaman, route, dan SQL mengikuti guide `refs/trd.md`. Dokumen produk ini tidak 
 | `nama_singkat` | Singkatan. **Default data:** ABPS |
 | `tagline` | Kalimat pendek aplikasi |
 | `logo_url`, `favicon_url` | Berkas logo dan ikon |
-| `primary_color`, `sidebar_color`, `accent_color` | Warna hex. Default kolom boilerplate tetap `#01665a` / `#2e8b7a` sampai admin menyimpan warna lembaga |
+| `primary_color`, `sidebar_color`, `accent_color` | Warna hex. Default kolom boilerplate `#01665a` / `#2e8b7a` sampai superadmin menyimpan warna lembaga |
 | `is_seed_default` | `true` hanya pada seed awal |
 
-Warna hijau dan emas prototipe bukan default skema. Admin menyimpannya lewat layar yang sama.
+Warna hijau dan emas prototipe bukan default skema. Superadmin menyimpannya lewat menu Pengaturan lembaga.
 
 Teks slip dan penandatangan **bukan** kolom `org_profile`. Keduanya pengaturan: **Default** judul slip `SLIP GAJI KARYAWAN AYAM BAKAR PUCUK SINGKONG`, penandatangan `HR PUCUK SINGKONG`, sumber sheet.
 
-### 5.2 Peran
+### 5.2 Tiga peran
 
-Mekanisme yang **wajib** dipertahankan: `users.role` bertipe teks, dicek di `lib/auth/rbac.ts` lewat `checkPermission(role, resource, action)`. Token di `user_tokens`.
+**Wajib.** `users.role` hanya berisi tiga label:
 
-Nilai yang dikenali kode boilerplate saat ini:
+| Kode | Sebutan | Lapisan |
+|---|---|---|
+| `superadmin` | Pengelola deployment | Tidak punya atasan. Boleh tanpa baris karyawan |
+| `superordinat` | Atasan | Satu lapisan di atas bawahan langsung |
+| `subordinat` | Bawahan | Tidak melihat rekan |
 
-| Kode | Di ERP HRD |
+Tidak ada peran `admin`, `supervisor`, `read_only`, `data_analyst`, atau `tim_blast` pada kontrak ini. Tidak ada tabel `custom_roles` dan tidak ada klaim peran dinamis. Label lama, bila masih ada di database, dipetakan sekali lewat migrasi di ERD, bukan dibiarkan hidup berdampingan.
+
+Pengecekan tetap `checkPermission(role, resource, action)` di `lib/auth/rbac.ts`. Menyembunyikan menu bukan izin. Setiap query daftar dan detail menolak baris di luar ruang data peran itu.
+
+Aksi sensitif (ubah lembaga, ubah aturan ber-floor, setujui payroll, screening kasbon, koreksi backdate) hanya `superadmin`, dan tetap mengikuti kebijakan persetujuan yang sudah ada.
+
+Karyawan tanpa akun tidak login. `employees.user_id` kosong dan `has_login` false.
+
+### 5.3 Kepemilikan
+
+| Pemilik | Yang dimiliki |
 |---|---|
-| `admin` | Konfigurasi lembaga, aturan, payroll, koreksi presensi, persetujuan |
-| `supervisor` | Jadwal tim, persetujuan izin dan tukar shift, input operasional yang diizinkan matriks |
-| `read_only` | Baca |
-| `data_analyst`, `tim_blast` | Tetap dikenali kode lama. Tidak mendapat menu HRD baru |
+| `superadmin` | Seluruh lokasi, tim, karyawan, run payroll, aturan, dan pengguna pada deployment ini |
+| `superordinat` | Diri sendiri ditambah karyawan yang `supervisor_employee_id` menunjuk ke dirinya. Lokasi dan tim yang terlihat hanya lokasi dan jabatan orang-orang itu |
+| `subordinat` | Satu baris karyawan miliknya: profil, jadwal, absensi, slip, kasbon, dan kontrak yang `employee_id`-nya sama dengan akunnya |
 
-**Default** matriks HRD memakai tiga kode pertama. Menambah kode baru, misalnya staf HR atau karyawan, adalah perubahan aplikasi yang belum dilakukan. Dokumen ini tidak membuat tabel `custom_roles`.
+Satu karyawan punya paling banyak satu atasan. Tidak ada atasan-dari-atasan. `superadmin` boleh tidak punya atasan dan boleh tidak punya baris karyawan.
 
-Karyawan lapangan yang hanya menerima gaji tidak harus punya baris `users`. Kolom `employees.has_login` dan `employees.user_id` memisahkan "ada di payroll" dari "boleh masuk sistem".
+### 5.4 Siapa melakukan apa
 
-Sesi boilerplate saat ini masih mengambil admin aktif pertama. Itu perilaku kode hari ini, bukan model produk akhir. Perbaikannya dicatat sebagai sugesti di TRD, bukan sebagai skema baru.
-
-### 5.3 Yang boleh dilakukan
-
-| Aksi | admin | supervisor | read_only |
+| Aksi | superadmin | superordinat | subordinat |
 |---|---|---|---|
-| Ubah profil lembaga | Ya | Tidak | Tidak |
-| Kelola pengguna | Ya | Tidak | Tidak |
-| Kelola karyawan dan komponen upah | Ya | Tidak | Tidak |
-| Lihat tim | Ya | Ya, sesuai penugasan | Ya, tanpa nominal gaji |
-| Clock-in sendiri | Hanya jika akun itu juga karyawan | Sama | Tidak |
-| Koreksi presensi backdate | Ya | Tidak | Tidak |
-| Atur jadwal | Ya | Ya | Tidak |
-| Setujui izin dan tukar shift | Ya | Ya | Tidak |
-| Ajukan kasbon | Jika akun itu karyawan | Jika akun itu karyawan | Tidak |
-| Screening kasbon | Ya | Tidak | Tidak |
-| Generate dan setujui payroll | Ya | Tidak | Tidak |
-| Ubah aturan ber-floor | Ya, lewat persetujuan | Tidak | Tidak |
-| Lihat slip sendiri | Jika terkait karyawan | Sama | Tidak |
-| Lihat slip orang lain | Ya | Tidak | Tidak |
+| Baca data | Semua lokasi dan tim di deployment | Diri dan bawahan langsung | Diri sendiri |
+| Buat master, pengguna, aturan | Ya | Tidak | Tidak |
+| Ubah komponen upah dan run payroll | Ya | Tidak | Tidak |
+| Setujui payroll, aturan ber-floor, screening kasbon, backdate | Ya | Tidak | Tidak |
+| Ubah jadwal bawahan langsung | Ya | Ya | Tidak |
+| Setujui izin dan tukar shift bawahan langsung | Ya | Ya | Tidak |
+| Ajukan izin, tukar shift, kasbon | Jika akun itu juga karyawan, untuk dirinya | Untuk dirinya | Untuk dirinya |
+| Clock-in | Jika akun itu juga karyawan | Untuk dirinya | Untuk dirinya |
+| Lihat slip | Semua orang | Diri dan bawahan langsung | Diri sendiri |
 
-Nominal gaji, kasbon, dan slip orang lain tidak tampil ke `read_only` dan tidak tampil ke supervisor di luar wewenangnya.
+`superordinat` tidak membuka tim atasan lain. `subordinat` tidak membuka rekan satu shift.
+
+### 5.5 Menu
+
+Menu berikut hanya modul yang sudah ada di PRD ini. Tidak ada menu stok.
+
+1. Dasbor
+2. Presensi: clock-in, rekap, koreksi backdate
+3. Jadwal: kalender, template shift, tukar shift
+4. Karyawan: daftar, komponen kompensasi
+5. Payroll: run, slip
+6. Kasbon: pengajuan, screening
+7. Bonus: omset outlet, bonus bulanan
+8. Kontrak: katalog tahap, kontrak orang
+9. Laporan: kehadiran, payroll
+10. Master: lokasi, jabatan, kelompok gaji, komponen, hari libur
+11. Pengaturan: lembaga, aturan, pengguna
+12. Persetujuan: kotak, kebijakan
+
+Huruf pada matriks: R baca, C buat, U ubah, A setujui. Titik berarti menu tidak ditampilkan. Izin tetap dicek di server untuk tiap huruf.
+
+| Menu | Submenu | superadmin | superordinat | subordinat |
+|---|---|---|---|---|
+| Dasbor | Ringkasan | R | R tim langsung | R diri |
+| Presensi | Clock-in | RCU diri, bila punya karyawan | RCU diri | RCU diri |
+| Presensi | Rekap | R | R tim langsung | R diri |
+| Presensi | Backdate | RCUA | . | . |
+| Jadwal | Kalender | RCU | RCU tim langsung | R diri |
+| Jadwal | Template | RCU | R | . |
+| Jadwal | Tukar shift | RCUA | RCUA tim langsung | RC milik sendiri |
+| Karyawan | Daftar | RCU | R tim langsung | R diri |
+| Karyawan | Komponen upah | RCU | R tim langsung | R diri |
+| Payroll | Run | RCUA | R tim langsung | . |
+| Payroll | Slip | R | R diri dan bawahan | R diri |
+| Kasbon | Pengajuan | RCU semua | RC diri, R bawahan | RC diri |
+| Kasbon | Screening | RCUA | . | . |
+| Bonus | Omset outlet | RCUA | . | . |
+| Bonus | Bonus bulanan | RCUA | R bagian diri dan bawahan | R bagian diri |
+| Kontrak | Katalog tahap | RCU | R | . |
+| Kontrak | Kontrak orang | RCU | R tim langsung | R diri |
+| Laporan | Kehadiran | R | R tim langsung | R diri |
+| Laporan | Payroll | R | R tim langsung | R diri |
+| Master | Lokasi, jabatan, kelompok, komponen, libur | RCU | R | . |
+| Pengaturan | Lembaga | RCU | . | . |
+| Pengaturan | Aturan | RCUA | . | . |
+| Pengaturan | Pengguna | RCU | . | . |
+| Persetujuan | Kotak | RCUA | RA untuk izin dan tukar shift bawahan | R status milik sendiri |
+| Persetujuan | Kebijakan | RCUA | . | . |
 
 ---
 
@@ -221,7 +272,7 @@ Tanda "payday" tanggal 3 pada jadwal sheet **bukan** default tanggal gaji. Lihat
 
 ### 7.2 Backdate
 
-**Wajib.** Kehadiran yang lupa atau dicatat mundur hanya boleh diisi HR (`admin`) dengan alasan. Jejak menulis `audit_logs` (`entity_type = attendance`). Karyawan tidak mengisi backdate sendiri. Supervisor tidak mengisi backdate pada default matriks ini.
+**Wajib.** Kehadiran yang lupa atau dicatat mundur hanya boleh diisi `superadmin` dengan alasan. Jejak menulis `audit_logs` (`entity_type = attendance`). `superordinat` dan `subordinat` tidak mengisi backdate.
 
 ### 7.3 Jam yang dibayar, dapur mingguan
 
@@ -229,7 +280,7 @@ Dokumen *Erp abs stok* menetapkan upah crew dapur dari jam masuk dan jam pulang 
 
 **Default scope `WEEKLY_DAPUR`:** `weekly.total_hours_basis = raw_clock_in`. Sumber: dokumen. Tidak ada jepitan 05:00.
 
-**Bukan default global.** Jepitan `counted_clock_in` pukul 05:00 plus insentif datang lebih awal tetap ada sebagai opsi. HR mengaktifkannya hanya pada scope karyawan atau jabatan yang memang masih memakai sheet. Sumber opsi itu: sheet.
+**Bukan default global.** Jepitan `counted_clock_in` pukul 05:00 plus insentif datang lebih awal tetap ada sebagai opsi. `superadmin` mengaktifkannya hanya pada scope karyawan atau jabatan yang memang masih memakai sheet. Sumber opsi itu: sheet.
 
 Override per karyawan atau per jabatan menang atas kelompok, sesuai urutan di bagian 2.
 
@@ -239,7 +290,7 @@ Override per karyawan atau per jabatan menang atas kelompok, sesuai urutan di ba
 
 Kelompok, jabatan, atau karyawan mengaktifkan `per_minute`, `prorata_hourly`, `per_hour`, `flat_cut`, atau `tiered` bila praktiknya memang memotong.
 
-**Default scope `MONTHLY_OUTLET`, sumber sheet, hanya jika HR menyalakan profil sheet outlet:** toleransi 0 menit dan contoh Rp500 per menit. Nilai itu tidak menyebar ke dapur, ke office hour dapur, atau ke shift backup.
+**Default scope `MONTHLY_OUTLET`, sumber sheet, hanya jika `superadmin` menyalakan profil sheet outlet:** toleransi 0 menit dan contoh Rp500 per menit. Nilai itu tidak menyebar ke dapur, ke office hour dapur, atau ke shift backup.
 
 **Default scope kantor pada sheet lama** adalah prorata gaji ÷ 26 ÷ 9. Itu profil sheet, bukan default dokumen. Dokumen hanya mengatakan denda per menit ada untuk bulanan yang mengaktifkannya. Sebelum kelompok kantor diaktifkan, modenya `none`.
 
@@ -273,7 +324,7 @@ Crew `WEEKLY_DAPUR` tidak memakai P1/P2/Middle/S3. Mereka punya template kerja d
 
 **Wajib.** Shift yang bertipe `backup` tidak menjalankan aturan telat. Menit telat payroll = 0. Jam masuk dan pulang tetap disimpan bila orang itu absen.
 
-Tukar shift outlet tetap membutuhkan pengganti dan konfirmasi supervisor. Pengganti yang masuk sebagai backup tidak terkena denda telat pada shift itu.
+Tukar shift outlet tetap membutuhkan pengganti dan konfirmasi `superordinat` bawahan itu, atau `superadmin`. Pengganti yang masuk sebagai backup tidak terkena denda telat pada shift itu.
 
 ### 8.4 Izin
 
@@ -307,7 +358,7 @@ Profil sheet yang boleh di-override per orang atau jabatan, dan tidak aktif seba
 - Insentif tanggal merah.
 - Baris terpisah untuk jam hari Minggu.
 
-**Contoh** nominal sheet (bukan seed orang): beberapa tarif jam dan lembur flat Rp10.000. Angka disimpan di komponen atau pengaturan scope bila HR mengaktifkan profil sheet.
+**Contoh** nominal sheet (bukan seed orang): beberapa tarif jam dan lembur flat Rp10.000. Angka disimpan di komponen atau pengaturan scope bila `superadmin` mengaktifkan profil sheet.
 
 Freelance dapur, bila masih ada, memakai tarif jam per orang ditambah borongan per satuan. Tarif borongan berversi tanggal. **Contoh** sheet tidak disalin sebagai nilai semua pekerja borongan.
 
@@ -359,7 +410,7 @@ Profil sheet (sumber sheet, tidak dipakai kelompok yang modenya `none`):
 
 1. Karyawan mengajukan kasbon dan memilih berapa kali potongan serta besar tiap cicilan.
 2. Interval cicilan: `weekly`, `monthly`, atau `custom`.
-3. HR melakukan screening dokumen. Sebelum lolos, kasbon tidak memotong gaji.
+3. `superadmin` melakukan screening dokumen. Sebelum lolos, kasbon tidak memotong gaji.
 4. Setelah lolos, tiap run gajian kelompok karyawan itu memotong otomatis sebesar cicilan yang disepakati, sampai sisa nol.
 5. Slip menampilkan potongan kasbon. Untuk dapur mingguan, inilah pengurang utama.
 6. Pelunasan tercatat per run. Perubahan jadwal cicilan membuat versi baru dan jejak audit.
@@ -399,13 +450,13 @@ Bentuknya, semua angka dan toggle dinamis:
 - Komponen tanpa izin. **Contoh:** Rp100.000 bila tidak ada izin pada periode.
 - Sisa pool setelah komponen tetap yang terbayar dibagi rata.
 
-**Wajib sebelum skema dihitung:** HR mengisi siapa yang masuk pembagian sisa. Dokumen tidak menetapkan populasinya. Pilihan yang tersedia: semua anggota kelompok, hanya yang menerima salah satu komponen, atau daftar manual. Tidak ada default diam-diam.
+**Wajib sebelum skema dihitung:** `superadmin` mengisi siapa yang masuk pembagian sisa. Dokumen tidak menetapkan populasinya. Pilihan yang tersedia: semua anggota kelompok, hanya yang menerima salah satu komponen, atau daftar manual. Tidak ada default diam-diam.
 
 Sakit tidak menggugurkan komponen "tanpa izin" kecuali toggle scope menyatakannya. **Default** toggle itu mati.
 
 ### 11.3 Bonus capaian
 
-Dokumen menyebut nama "bonus capaian" tanpa rumus. Katalog boleh punya jenis ini. **Default** nonaktif dan tidak menghasilkan angka sampai HR menyimpan rumusnya.
+Dokumen menyebut nama "bonus capaian" tanpa rumus. Katalog boleh punya jenis ini. **Default** nonaktif dan tidak menghasilkan angka sampai `superadmin` menyimpan rumusnya.
 
 ---
 
@@ -419,9 +470,9 @@ Dokumen menyebut nama "bonus capaian" tanpa rumus. Katalog boleh punya jenis ini
 | `training_3m` | 3 bulan |
 | `contract_1y` | 1 tahun |
 
-HR menyusun tahapan per karyawan. Sistem menyimpan tanggal mulai, tanggal selesai, dan menghitung masa kerja dari tanggal masuk sampai tanggal selesai atau hari ini bila masih berjalan.
+`superadmin` menyusun tahapan per karyawan. Sistem menyimpan tanggal mulai, tanggal selesai, dan menghitung masa kerja dari tanggal masuk sampai tanggal selesai atau hari ini bila masih berjalan.
 
-**Wajib** ada pengingat menjelang akhir kontrak yang masih aktif. Jumlah hari pengingat **belum ada di dokumen**. Kolomnya kosong sampai HR mengisi. Pengingat tidak dikirim selama hari itu kosong.
+**Wajib** ada pengingat menjelang akhir kontrak yang masih aktif. Jumlah hari pengingat **belum ada di dokumen**. Kolomnya kosong sampai `superadmin` mengisi. Pengingat tidak dikirim selama hari itu kosong.
 
 ---
 
@@ -456,9 +507,9 @@ Tabel ini adalah konfigurasi, bukan dua kebijakan yang sama-sama global. Seed me
 | Admin, medsos, CS | Pecahan sheet kantor | Admin dan medsos: pokok + tunjangan kehadiran. CS: plus bonus | Ketersediaan komponen per jabatan, nominal per orang | **Wajib** per orang |
 | Crew dapur | Harian ÷ 9 atau tarif jam sheet | Tarif jam berbeda tiap orang | `hourly_rate` per karyawan pada `WEEKLY_DAPUR` | **Wajib** per orang |
 | Office hour dapur | Tidak dipisah dari crew mingguan | Ada tim dapur bulanan tanpa denda telat | Kelompok `MONTHLY_DAPUR_OFFICE` | **Wajib** terpisah |
-| Kasbon | Nominal dan cicilan opsional | Karyawan memilih kali dan besar cicilan; interval mingguan, bulanan, atau custom; screening HR; potong otomatis tiap gajian | Alur kasbon versi 3.0 | **Wajib** alur; angka = Default |
+| Kasbon | Nominal dan cicilan opsional | Karyawan memilih kali dan besar cicilan; interval mingguan, bulanan, atau custom; screening `superadmin`; potong otomatis tiap gajian | Alur kasbon versi 3.0 | **Wajib** alur; angka = Default |
 | Shift backup | Hanya lewat tukar shift | Tidak ada aturan telat | `shift.late_policy = none` untuk tipe backup | **Wajib** |
-| Presensi lupa | Koreksi HR disebut di produk lama | HR mencatat backdate, ada audit | Izin `attendance.correct` hanya `admin` | **Wajib** |
+| Presensi lupa | Koreksi disebut di produk lama | `superadmin` mencatat backdate, ada audit | Izin `attendance.correct` hanya `superadmin` | **Wajib** |
 | Stok dan HPP | Di luar HRD | Ada di dokumen yang sama | Roadmap bagian 17, tanpa tabel | **Wajib** di luar scope |
 
 ---
@@ -483,7 +534,7 @@ Preview menunjukkan selisih pada run yang masih draft atau calculated.
 | `bonus.monthly.*` | bentuk contoh bagian 11.2; populasi sisa wajib diisi | kelompok | dokumen | Floor |
 | `feature.bpjs`, `feature.pph21` | mati | lembaga atau kelompok | changelog | Floor |
 | `feature.salary_holdback` | mati | kelompok atau karyawan | sheet Maret, bukan dokumen | Floor |
-| `kasbon.interval` | dipilih saat pengajuan | per kasbon | dokumen | Screening HR |
+| `kasbon.interval` | dipilih saat pengajuan | per kasbon | dokumen | Screening `superadmin` |
 | `contract.remind_days` | kosong | lembaga | tidak ada di dokumen | Mati |
 | `system.public_api` | mati terkunci | lembaga | keamanan | Tidak ada saklar UI |
 
@@ -491,9 +542,9 @@ Daftar Q-01 sampai Q-17 pada changelog tetap menjadi kunci yang tersedia. Bila d
 
 ### 15.2 Persetujuan
 
-**Wajib** tidak ada self-approval. Kebijakan persetujuan sendiri membutuhkan dua pengguna `admin` yang berbeda. Bila baru ada satu admin, perubahan bertanda floor tidak bisa disetujui sampai pengguna kedua ada. Sistem menolak kebijakan yang mustahil disetujui.
+**Wajib** tidak ada self-approval. Kebijakan persetujuan sendiri membutuhkan dua pengguna `superadmin` yang berbeda. Bila baru ada satu `superadmin`, perubahan bertanda floor tidak bisa disetujui sampai pengguna kedua ada. Sistem menolak kebijakan yang mustahil disetujui.
 
-Peran penyetuju mengacu ke kode `users.role` yang ada. Dokumen lama yang menyebut "Owner" dibaca sebagai pengguna `admin`, bukan tabel baru.
+Peran penyetuju hanya `superadmin` atau `superordinat` sesuai matriks menu. Dokumen lama yang menyebut "Owner" dibaca sebagai `superadmin`.
 
 Item yang sudah `approved` pada payroll tidak dibuka kembali oleh perubahan kebijakan.
 
@@ -506,21 +557,21 @@ Item yang sudah `approved` pada payroll tidak dibuka kembali oleh perubahan kebi
 | US-01 | Sebagai crew outlet, saya melihat jadwal sebulan: shift, station, dan status off. |
 | US-02 | Sebagai crew outlet, saya clock-in dan melihat menit telat hanya bila kelompok saya memang memotong telat. |
 | US-03 | Sebagai crew, saya menukar shift. Shift backup pengganti tidak menghasilkan denda telat. |
-| US-04 | Sebagai HR, saya mengisi presensi yang lupa beserta alasan, dan jejaknya ada di audit. |
+| US-04 | Sebagai superadmin, saya mengisi presensi yang lupa beserta alasan, dan jejaknya ada di audit. |
 | US-05 | Sebagai crew dapur mingguan, slip saya memakai jam aktual × tarif saya, tanpa potongan telat, dengan kasbon bila ada. |
-| US-06 | Sebagai HR, saya memberi satu crew dapur profil sheet 05:00 tanpa mengubah crew dapur yang lain. |
+| US-06 | Sebagai superadmin, saya memberi satu crew dapur profil sheet 05:00 tanpa mengubah crew dapur yang lain. |
 | US-07 | Sebagai karyawan bulanan, saya melihat pokok, tunjangan yang memang saya punya, lembur per jam, dan payday tanggal 1. |
-| US-08 | Sebagai karyawan, saya mengajukan kasbon dengan jumlah cicilan dan interval, lalu HR men-screening sebelum ada potongan. |
-| US-09 | Sebagai HR, saya menghitung bonus omset outlet dan bonus bulanan berkomponen sebagai dua proses. |
-| US-10 | Sebagai HR, bonus bulanan menolak dihitung sebelum populasi sisa dipilih. |
-| US-11 | Sebagai HR, saya menyusun kontrak 1 bulan, 3 bulan, lalu 1 tahun, dan sistem menyimpan awal, akhir, serta masa kerja. |
-| US-12 | Sebagai admin, saya mengubah nama dan warna lembaga tanpa menyentuh aturan payroll. |
+| US-08 | Sebagai subordinat, saya mengajukan kasbon dengan jumlah cicilan dan interval, lalu superadmin men-screening sebelum ada potongan. |
+| US-09 | Sebagai superadmin, saya menghitung bonus omset outlet dan bonus bulanan berkomponen sebagai dua proses. |
+| US-10 | Sebagai superadmin, bonus bulanan menolak dihitung sebelum populasi sisa dipilih. |
+| US-11 | Sebagai superadmin, saya menyusun kontrak 1 bulan, 3 bulan, lalu 1 tahun, dan sistem menyimpan awal, akhir, serta masa kerja. |
+| US-12 | Sebagai superadmin, saya mengubah nama dan warna lembaga tanpa menyentuh aturan payroll. |
 
 | Kriteria | Target |
 |---|---|
 | Scope dapur dan outlet | Mengubah denda outlet tidak mengubah slip dapur |
 | Backup | `late_minutes` payroll = 0 |
-| Backdate | Ditolak tanpa alasan atau tanpa peran `admin` |
+| Backdate | Ditolak tanpa alasan atau tanpa peran `superadmin` |
 | Payday | Kelompok bulanan default tanggal 1 |
 | Jam dapur | Default aktual. Override 05:00 hanya pada scope yang dipilih |
 | Contoh manager dapur | Tidak muncul sebagai nominal jabatan |
@@ -564,5 +615,7 @@ Hal berikut sengaja tidak diisi:
 - Koordinat lokasi.
 - Apakah profil sheet 05:00 masih dipakai seorang crew tertentu.
 - Nama badan hukum. Tampilan aplikasi memakai nama dagang sampai diisi di `org_profile`.
+- Atasan langsung tiap karyawan. Kolomnya tidak ada di roster, jadi tidak diisi.
+- Seed karyawan tidak aktif. Rincian field yang siap dan yang belum ada di `refs/seed-hrd.md`. Jumlah nama pada sheet `saat ini` bukan pernyataan bahwa seed sudah lengkap.
 
 Sebelum butir itu diisi di pengaturan, fitur yang bergantung padanya tidak menghitung angka.

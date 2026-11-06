@@ -7,7 +7,7 @@
 **Sumber aturan:** `refs/prd.md` versi 3.0
 **Bukan** skema multi-tenant prototipe HRD v2.2
 
-Dokumen ini mengganti entitas CRM (donatur, program, campaign, transaksi, blast, segmen, prospek) dengan domain HRD. Pengaturan lembaga dan akses admin dipertahankan sesuai migrasi yang sudah ada di repo. Tidak ada data pribadi pada seed.
+Dokumen ini mengganti entitas CRM (donatur, program, campaign, transaksi, blast, segmen, prospek) dengan domain HRD. Bentuk tabel `org_profile`, `app_config`, `users`, `user_tokens`, dan `audit_logs` mengikuti migrasi yang sudah ada. Label `users.role` pada kontrak ERP hanya tiga. Tidak ada data pribadi pada seed.
 
 ---
 
@@ -28,7 +28,7 @@ Dokumen ini mengganti entitas CRM (donatur, program, campaign, transaksi, blast,
 
 ## 2. Yang dipertahankan
 
-Mekanisme persisten lembaga dan admin **wajib** tetap.
+Mekanisme persisten lembaga dan akun **wajib** tetap bentuk kolomnya. Label peran tidak memakai nilai CRM.
 
 | Tabel | Peran |
 |---|---|
@@ -56,7 +56,7 @@ CREATE TABLE users (
     nama          VARCHAR(200) NOT NULL,
     email         VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    role          VARCHAR(50)  NOT NULL DEFAULT 'tim_blast',
+    role          VARCHAR(50)  NOT NULL DEFAULT 'subordinat',
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
     last_login_at TIMESTAMPTZ,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -64,7 +64,9 @@ CREATE TABLE users (
     deleted_at    TIMESTAMPTZ
 );
 COMMENT ON COLUMN users.role IS
-  'Kode yang dikenali boilerplate: admin | supervisor | data_analyst | tim_blast | read_only. ERP HRD memakai admin, supervisor, read_only. Default kolom tim_blast adalah warisan CRM dan tidak diubah di dokumen ini.';
+  'Hanya superadmin | superordinat | subordinat. Migrasi kode saat ini masih DEFAULT tim_blast dan belum ada CHECK ini.';
+ALTER TABLE users ADD CONSTRAINT ck_users_role
+  CHECK (role IN ('superadmin', 'superordinat', 'subordinat'));
 
 CREATE TABLE user_tokens (
     id           BIGSERIAL    PRIMARY KEY,
@@ -114,9 +116,25 @@ COMMENT ON TABLE audit_logs IS 'Immutable. HRD tidak mengisi donor_id.';
 COMMENT ON COLUMN audit_logs.donor_id IS 'Warisan CRM. FK ke donors tetap ada di migrasi saat ini. Domain HRD mengosongkannya.';
 ```
 
-Default kolom `users.role` tetap `tim_blast` seperti migrasi yang ada. Akun ERP baru wajib mengisi `admin`, `supervisor`, atau `read_only` secara eksplisit. Dokumen ini tidak mengubah file SQL repo.
+Migrasi label, **belum dijalankan** dan belum ditulis ke `lib/db/migrations/`:
 
-Tidak ada tabel `tenants`, `custom_roles`, atau kata sandi di `employees`.
+```sql
+UPDATE users SET role = CASE role
+  WHEN 'admin' THEN 'superadmin'
+  WHEN 'supervisor' THEN 'superordinat'
+  ELSE 'subordinat'
+END
+WHERE role IN ('admin', 'supervisor', 'data_analyst', 'tim_blast', 'read_only');
+ALTER TABLE users ALTER COLUMN role SET DEFAULT 'subordinat';
+```
+
+Jangan menjalankan cuplikan itu sebelum `lib/auth/rbac.ts` hanya mengenal tiga label. `drizzle/seed.ts` masih menulis label CRM. PR ini tidak mengubah berkas itu.
+
+Tidak ada tabel `tenants` atau `custom_roles`. Kata sandi tidak disimpan di `employees`.
+
+### 2.2 Atasan satu lapis
+
+`employees.supervisor_employee_id` menunjuk ke satu karyawan atau `NULL`. Tidak ada tabel penutup, tidak ada kedalaman, tidak ada atasan dari atasan. `superadmin` boleh tanpa baris karyawan dan tanpa atasan.
 
 ---
 
@@ -245,6 +263,7 @@ COMMENT ON TABLE pay_groups IS
 CREATE TABLE employees (
     id                  BIGSERIAL PRIMARY KEY,
     user_id             BIGINT       UNIQUE REFERENCES users(id),
+    supervisor_employee_id BIGINT    REFERENCES employees(id),
     position_id         BIGINT       NOT NULL REFERENCES positions(id),
     location_id         BIGINT       REFERENCES locations(id),
     pay_group_id        BIGINT       NOT NULL REFERENCES pay_groups(id),
@@ -271,8 +290,14 @@ CREATE TABLE employees (
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     deleted_at          TIMESTAMPTZ,
-    CONSTRAINT ck_employee_login CHECK (has_login = FALSE OR user_id IS NOT NULL)
+    CONSTRAINT ck_employee_login CHECK (has_login = FALSE OR user_id IS NOT NULL),
+    CONSTRAINT ck_supervisor_not_self CHECK (
+        supervisor_employee_id IS NULL OR supervisor_employee_id <> id
+    )
 );
+COMMENT ON COLUMN employees.supervisor_employee_id IS
+  'Satu atasan langsung. NULL diizinkan. Bukan hierarki rekursif.';
+CREATE INDEX idx_emp_supervisor ON employees(supervisor_employee_id);
 COMMENT ON COLUMN employees.nik IS 'Kolom operasional. Dilarang diisi data asli di seed dan di dokumen.';
 COMMENT ON COLUMN employees.hourly_rate IS 'Tarif crew dapur per orang. Bukan tarif global.';
 CREATE INDEX idx_emp_group ON employees(pay_group_id) WHERE deleted_at IS NULL;
@@ -795,7 +820,7 @@ CREATE TABLE approval_policies (
     CONSTRAINT ck_policy_target CHECK (definition_id IS NOT NULL OR category IS NOT NULL)
 );
 COMMENT ON COLUMN approval_policies.approver_roles IS
-  'Hanya kode users.role. Owner pada dokumen lama = admin.';
+  'Hanya superadmin atau superordinat. Owner pada dokumen lama = superadmin.';
 
 CREATE TABLE approval_requests (
     id              BIGSERIAL PRIMARY KEY,
@@ -855,9 +880,9 @@ Kelompok gaji yang di-seed:
 | `MONTHLY_KANTOR` | monthly | tanggal 1 |
 | `PART_TIME` | monthly | tanggal 1 |
 
-Lokasi: `OUTLET_BAROS`, `DAPUR_PUSAT`. Latitude dan longitude kosong.
+Lokasi katalog: `DAPUR_PUSAT` (teks kolom roster). `OUTLET_BAROS` tidak dipasang ke karyawan. Label `Outlet` pada roster belum menjadi FK. Latitude dan longitude kosong.
 
-Jabatan tanpa nominal: crew dapur (`weekly_hourly`), manager dapur (`monthly_office`), admin, admin medsos, CS, crew outlet, leader outlet, manager operasional, purchasing, part-time.
+Jabatan katalog tanpa nominal tetap tersedia untuk master. Jabatan orang hanya diisi dari kolom roster yang benar-benar terisi. Lihat `refs/seed-hrd.json`.
 
 Komponen master, tanpa nominal default orang: `GAPOK`, `TUNJ_KEHADIRAN`, `TUNJ_TRANSPORT`, `TUNJ_JABATAN`, `TUNJ_TT`, `UPAH_JAM`, `UPAH_HARIAN`, `LEMBUR`, `INSENTIF_TGL_MERAH`, `BONUS`, `KASBON`, `POTONGAN_TELAT`, `POTONGAN_IZIN`, `POTONGAN_SAKIT`.
 
@@ -874,7 +899,22 @@ Tahap kontrak: `training_1m` 1 bulan, `training_3m` 3 bulan, `contract_1y` 1 tah
 | `MONTHLY_OUTLET` | tidak memakai jepitan 05:00 | `none` | `doc_erp_abs_stok` |
 | `MONTHLY_KANTOR` | tidak memakai jepitan 05:00 | `none` | `doc_erp_abs_stok` |
 
-Tidak ada karyawan contoh bermuatan Rp2.000.000. Contoh itu dijelaskan di PRD dan hanya boleh masuk lewat komponen satu orang bila HR mencatatnya.
+Tidak ada karyawan contoh dan tidak ada nominal manajer yang di-seed sebagai default jabatan.
+
+### 7.1 Orang dan akun
+
+Sumber roster dan batas field ada di `refs/seed-hrd.md` serta `refs/seed-hrd.json`.
+
+Yang dapat di-seed **tanpa** tabel baru, pada migrasi yang ada sekarang:
+
+- `org_profile` dan `app_config`, lewat `drizzle/seed.ts` yang sudah ada. PR ini tidak mengganti nilainya.
+- `users.role` secara tipe kolom muat tiga label baru, tetapi seed yang jalan masih menulis label CRM, dan `checkPermission` belum mengenal tiga label itu.
+
+Yang **tidak** dapat di-seed tanpa migrasi HRD: `locations`, `positions`, `pay_groups`, `employees`, komponen, dan atasan. Karena itu tidak ada perubahan `drizzle/seed.ts` untuk karyawan.
+
+Placeholder `superadmin` di JSON tidak punya email dan tidak punya password. Kolom `users.email` dan `users.password_hash` pada migrasi saat ini `NOT NULL`, jadi placeholder itu tidak di-insert.
+
+Audit relasi pada berkas JSON: enam orang memenuhi field wajib ERD (nomor dari payroll yang cocok persis, nama, jabatan, kelompok `MONTHLY_OUTLET`, tanggal bergabung). Tiga belas orang di roster yang sama belum memenuhi. Satu orang payroll tidak ada di sheet `saat ini` dan tidak di-seed. Semua `supervisor_employee_id` kosong. Tidak ada user karyawan. Rantai organisasi → lokasi → jabatan → kelompok → user → atasan belum tertutup. Ini bukan seed lengkap.
 
 ---
 

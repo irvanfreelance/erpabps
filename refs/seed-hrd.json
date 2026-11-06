@@ -1,0 +1,820 @@
+{
+  "format": "seed-dokumen-terstruktur",
+  "activatable": false,
+  "activatable_reason": "Migrasi kode hanya punya tabel CRM. Tabel employees, positions, pay_groups, dan locations belum ada. Berkas ini tidak dijalankan oleh drizzle/seed.ts.",
+  "sources": [
+    {
+      "file": "01M5N2592A3Q66VH68S8SJQQVF_d4fc.xlsx",
+      "sheet": "saat ini",
+      "role": "roster aktif"
+    },
+    {
+      "file": "01M5N258XKRBFP6PNEZAF536KD_65c1.xlsx",
+      "sheet": "SEPTEMBER",
+      "role": "ID dan posisi payroll bulanan terakhir di berkas"
+    },
+    {
+      "file": "01M5N258YB29731VT03ERGW9PD_436b.xlsx",
+      "sheet": "10 Oktober - 16 Oktober",
+      "role": "ID, posisi, dan tarif harian payroll mingguan terakhir di berkas"
+    }
+  ],
+  "omitted_fields": [
+    "nik",
+    "kk",
+    "email",
+    "phone",
+    "birth_date",
+    "birth_place",
+    "address",
+    "bank",
+    "account_number",
+    "gender",
+    "marital_status",
+    "religion"
+  ],
+  "org_profile": {
+    "id": 1,
+    "nama": "Ayam Bakar Pucuk Singkong",
+    "nama_singkat": "ABPS",
+    "tagline": "",
+    "note": "Nilai tampilan. Tidak ditulis ke drizzle/seed.ts pada PR ini."
+  },
+  "locations": [
+    {
+      "code": "DAPUR_PUSAT",
+      "name": "Dapur Pusat",
+      "source": "saat ini kolom A"
+    }
+  ],
+  "location_unresolved": [
+    {
+      "label": "Outlet",
+      "reason": "Kolom A hanya menulis Outlet. Sheet Kas Outlet Baros ada di berkas lain, tetapi tidak disalin menjadi FK setiap baris."
+    }
+  ],
+  "pay_groups_used": [
+    "MONTHLY_OUTLET",
+    "WEEKLY_DAPUR"
+  ],
+  "users": [
+    {
+      "placeholder": true,
+      "role": "superadmin",
+      "nama": "Superadmin",
+      "email": null,
+      "password_hash": null,
+      "employee_number": null,
+      "supervisor_employee_number": null,
+      "note": "Tanpa password dan tanpa email. Tidak dapat di-insert ke users saat ini karena email dan password_hash wajib."
+    }
+  ],
+  "ready_employees": [
+    {
+      "source_row": 3,
+      "full_name": "vanesa rizki amalia",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "21 juni 2025",
+      "join_date": "2025-06-21",
+      "join_parse": "id-text",
+      "compensation_text": "1.1jt (50%pokok)+ 1.1jt (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "CW011",
+      "employee_number_source": "SEPTEMBER kolom B",
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW011",
+          "payroll_name": "Vanesa Rizki Amalia",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 9,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "source_row": 5,
+      "full_name": "Muhammad Nasir Abdul Hakim",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Leader",
+      "join_date_raw": "15 desember 2023",
+      "join_date": "2023-12-15",
+      "join_parse": "id-text",
+      "compensation_text": "1.6jt (50% pokok) + 960rb (30% kehadiran & transport ) + 640rb(20% tujnajngan jabatan)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "CW007",
+      "employee_number_source": "SEPTEMBER kolom B",
+      "position_code": "leader",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [
+        {
+          "field": "position",
+          "roster": "Leader",
+          "payroll": "Crew Outlet",
+          "payroll_sheet": "SEPTEMBER",
+          "payroll_column": "D"
+        }
+      ],
+      "block_reasons": [],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW007",
+          "payroll_name": "Muhammad Nasir Abdul Hakim",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 8,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "source_row": 6,
+      "full_name": "mohammad rafly",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "2026-04-17",
+      "join_date": "2026-04-17",
+      "join_parse": "datetime",
+      "compensation_text": "1jt (50%pokok)+ 1jt (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "CW017",
+      "employee_number_source": "SEPTEMBER kolom B",
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW017",
+          "payroll_name": "Mohammad Rafly",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 12,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "source_row": 7,
+      "full_name": "iman budiman",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "2025-09-28",
+      "join_date": "2025-09-28",
+      "join_parse": "datetime",
+      "compensation_text": "1.1jt (50%pokok)+ 1.1jt (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "CW006",
+      "employee_number_source": "SEPTEMBER kolom B",
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW006",
+          "payroll_name": "Iman Budiman",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 7,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "source_row": 8,
+      "full_name": "YULI HERMAWATI",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "01 JANUARI 2026",
+      "join_date": "2026-01-01",
+      "join_parse": "id-text",
+      "compensation_text": "1.1jt (50%pokok)+ 1.1jt (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "CW015",
+      "employee_number_source": "SEPTEMBER kolom B",
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW015",
+          "payroll_name": "Yuli Hermawati",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 10,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "source_row": 10,
+      "full_name": "hesti",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "28 agustus 2026",
+      "join_date": "2026-08-28",
+      "join_parse": "id-text",
+      "compensation_text": "900rb(50%pokok)+ 900rb (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "CW022",
+      "employee_number_source": "SEPTEMBER kolom B",
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW022",
+          "payroll_name": "Hesti",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 17,
+          "exact": true
+        }
+      ]
+    }
+  ],
+  "blocked_employees": [
+    {
+      "source_row": 2,
+      "full_name": "Dahlia MS",
+      "location_label": null,
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Manager",
+      "join_date_raw": "23 Februari 2026",
+      "join_date": "2026-02-23",
+      "join_parse": "id-text",
+      "compensation_text": "3jt (60%Pokok)+ 1.25jt (25% kehadiran & trnasport) + 750 (15%tunjangan jabatan)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "manager",
+      "pay_group_code": null,
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "lokasi kolom A kosong sehingga pay_group bulanan tidak dipetakan",
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [],
+      "possible_same_person_not_merged": {
+        "employee_number": "A002",
+        "payroll_name": "Dahlia Mukhtiasari",
+        "posisi": "Manager Operasional",
+        "why": "Token depan sama. Sisa nama tidak sama. ID tidak dipakai."
+      }
+    },
+    {
+      "source_row": 4,
+      "full_name": "reyhaan. Auriel al fahrezi",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "21 agustus 2026",
+      "join_date": "2026-08-21",
+      "join_parse": "id-text",
+      "compensation_text": "1jt (50%pokok)+ 1jt (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [],
+      "possible_same_person_not_merged": {
+        "employee_number": "CW018",
+        "payroll_name": "Reyhan",
+        "posisi": "Crew Outlet",
+        "why": "Ejaan token depan berbeda (reyhaan/reyhan). ID tidak dipakai."
+      }
+    },
+    {
+      "source_row": 9,
+      "full_name": "REFA MEISYA",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "24 agustus 2026",
+      "join_date": "2026-08-24",
+      "join_parse": "id-text",
+      "compensation_text": "900rb(50%pokok)+ 900rb (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW020",
+          "payroll_name": "Refa",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 15,
+          "exact": false
+        }
+      ]
+    },
+    {
+      "source_row": 11,
+      "full_name": "airi febriyaanti",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "8 februari 2026",
+      "join_date": "2026-02-08",
+      "join_parse": "id-text",
+      "compensation_text": "1.1jt (50%pokok)+ 1.1jt (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [],
+      "possible_same_person_not_merged": {
+        "employee_number": "CW016",
+        "payroll_name": "Airi Febriyanti",
+        "posisi": "Crew Outlet",
+        "why": "Ejaan nama belakang berbeda. ID tidak dipakai."
+      }
+    },
+    {
+      "source_row": 12,
+      "full_name": "herni lestari",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "21 agustus 2026",
+      "join_date": "2026-08-21",
+      "join_parse": "id-text",
+      "compensation_text": "1.1jt (50%pokok)+ 1.1jt (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW019",
+          "payroll_name": "Herni",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 14,
+          "exact": false
+        }
+      ]
+    },
+    {
+      "source_row": 13,
+      "full_name": "M iqbal k",
+      "location_label": "Outlet",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Crew outlet",
+      "join_date_raw": "24 Agustus 2026",
+      "join_date": "2026-08-24",
+      "join_parse": "id-text",
+      "compensation_text": "900rb(50%pokok)+ 900rb (50% kehadiran&transportasi)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "crew_outlet",
+      "pay_group_code": "MONTHLY_OUTLET",
+      "location_code": null,
+      "location_fk": "kosong",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "CW021",
+          "payroll_name": "Iqbal",
+          "posisi": "Crew Outlet",
+          "sheet": "SEPTEMBER",
+          "row": 16,
+          "exact": false
+        }
+      ]
+    },
+    {
+      "source_row": 14,
+      "full_name": "Sofrowati",
+      "location_label": "Dapur Pusat",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Manager produksi",
+      "join_date_raw": null,
+      "join_date": null,
+      "join_parse": "kosong",
+      "compensation_text": "2jt (pokok) + 100/hari",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "manager_produksi",
+      "pay_group_code": null,
+      "location_code": "DAPUR_PUSAT",
+      "location_fk": "terisi",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "join_date wajib tidak lengkap di kolom D sheet saat ini",
+        "pay_group tidak ditentukan: Bulanan di Dapur Pusat tidak otomatis menjadi kelompok kantor atau office hour",
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": []
+    },
+    {
+      "source_row": 15,
+      "full_name": "Lilis Solihah",
+      "location_label": "Dapur Pusat",
+      "pay_frequency_label": "Mingguan",
+      "position_label": "head kitchen",
+      "join_date_raw": null,
+      "join_date": null,
+      "join_parse": "kosong",
+      "compensation_text": "14.444/jam atau 130rb/hari",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "P001",
+      "employee_number_source": "10 Oktober - 16 Oktober kolom B",
+      "position_code": "head_kitchen",
+      "pay_group_code": "WEEKLY_DAPUR",
+      "location_code": "DAPUR_PUSAT",
+      "location_fk": "terisi",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [
+        {
+          "field": "position",
+          "roster": "head kitchen",
+          "payroll": "PRODUKSI",
+          "payroll_sheet": "10 Oktober - 16 Oktober",
+          "payroll_column": "D"
+        }
+      ],
+      "block_reasons": [
+        "join_date wajib tidak lengkap di kolom D sheet saat ini"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": []
+    },
+    {
+      "source_row": 16,
+      "full_name": "Titin Sumartini",
+      "location_label": "Dapur Pusat",
+      "pay_frequency_label": "Mingguan",
+      "position_label": null,
+      "join_date_raw": null,
+      "join_date": null,
+      "join_parse": "kosong",
+      "compensation_text": "13.333/jam atau 120rb/hari",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "P002",
+      "employee_number_source": "10 Oktober - 16 Oktober kolom B",
+      "position_code": null,
+      "pay_group_code": "WEEKLY_DAPUR",
+      "location_code": "DAPUR_PUSAT",
+      "location_fk": "terisi",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "join_date wajib tidak lengkap di kolom D sheet saat ini",
+        "jabatan kosong di kolom E sheet saat ini"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": []
+    },
+    {
+      "source_row": 17,
+      "full_name": "Yuyun Wahyuni",
+      "location_label": "Dapur Pusat",
+      "pay_frequency_label": "Mingguan",
+      "position_label": null,
+      "join_date_raw": null,
+      "join_date": null,
+      "join_parse": "kosong",
+      "compensation_text": "11.111/jam atau 100rb/hari",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "P003",
+      "employee_number_source": "10 Oktober - 16 Oktober kolom B",
+      "position_code": null,
+      "pay_group_code": "WEEKLY_DAPUR",
+      "location_code": "DAPUR_PUSAT",
+      "location_fk": "terisi",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "join_date wajib tidak lengkap di kolom D sheet saat ini",
+        "jabatan kosong di kolom E sheet saat ini"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": []
+    },
+    {
+      "source_row": 18,
+      "full_name": "Neni Nurhayati",
+      "location_label": "Dapur Pusat",
+      "pay_frequency_label": "Mingguan",
+      "position_label": null,
+      "join_date_raw": null,
+      "join_date": null,
+      "join_parse": "kosong",
+      "compensation_text": "10rb/jam atau 90rb/hari",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "P004",
+      "employee_number_source": "10 Oktober - 16 Oktober kolom B",
+      "position_code": null,
+      "pay_group_code": "WEEKLY_DAPUR",
+      "location_code": "DAPUR_PUSAT",
+      "location_fk": "terisi",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "join_date wajib tidak lengkap di kolom D sheet saat ini",
+        "jabatan kosong di kolom E sheet saat ini"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": []
+    },
+    {
+      "source_row": 19,
+      "full_name": "Yuni Griyadini",
+      "location_label": "Dapur Pusat",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Admin CS",
+      "join_date_raw": null,
+      "join_date": null,
+      "join_parse": "kosong",
+      "compensation_text": "1440 (60 %pokok) + 960 (40%  trnasport dan kehadiran) + bonus omset catering 0.5% omset",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": "A001",
+      "employee_number_source": "SEPTEMBER kolom B",
+      "position_code": "admin_cs",
+      "pay_group_code": null,
+      "location_code": "DAPUR_PUSAT",
+      "location_fk": "terisi",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [
+        {
+          "field": "position",
+          "roster": "Admin CS",
+          "payroll": "Admin Staff",
+          "payroll_sheet": "SEPTEMBER",
+          "payroll_column": "D"
+        }
+      ],
+      "block_reasons": [
+        "join_date wajib tidak lengkap di kolom D sheet saat ini",
+        "pay_group tidak ditentukan: Bulanan di Dapur Pusat tidak otomatis menjadi kelompok kantor atau office hour"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [
+        {
+          "employee_number": "A001",
+          "payroll_name": "Yuni Griyadini",
+          "posisi": "Admin Staff",
+          "sheet": "SEPTEMBER",
+          "row": 20,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "source_row": 20,
+      "full_name": "Meylinda Siti Nur Fatimah",
+      "location_label": "Dapur Pusat",
+      "pay_frequency_label": "Bulanan",
+      "position_label": "Admin SCM",
+      "join_date_raw": "4 Juni 2026",
+      "join_date": "2026-06-04",
+      "join_parse": "id-text",
+      "compensation_text": "1.38 jt (60% pokok)+920 (40% tunjangan kehadiran & transport)",
+      "compensation_column": "C",
+      "compensation_header": null,
+      "roster_employee_id": null,
+      "employee_number": null,
+      "employee_number_source": null,
+      "position_code": "admin_scm",
+      "pay_group_code": null,
+      "location_code": "DAPUR_PUSAT",
+      "location_fk": "terisi",
+      "supervisor_employee_number": null,
+      "user_id": null,
+      "has_login": false,
+      "role": null,
+      "in_payroll": true,
+      "conflicts": [],
+      "block_reasons": [
+        "pay_group tidak ditentukan: Bulanan di Dapur Pusat tidak otomatis menjadi kelompok kantor atau office hour",
+        "employee_number tidak ada di sheet saat ini kolom F, dan tidak ada cocok persis di payroll"
+      ],
+      "validation_required_before_production": true,
+      "payroll_candidates": [],
+      "possible_same_person_not_merged": {
+        "employee_number": "A004",
+        "payroll_name": "Meylinda Sitinur Fatimah",
+        "posisi": "Purchasing & Inventory",
+        "why": "Ejaan nama tengah berbeda. ID tidak dipakai."
+      }
+    }
+  ],
+  "payroll_not_on_current_roster": [
+    {
+      "employee_number": "A003",
+      "name_on_payroll": "Tri Wulandari",
+      "posisi": "Content Specialist",
+      "sheet": "SEPTEMBER",
+      "row": 28,
+      "reason": "tidak ada nama roster saat ini yang memuat seluruh token nama payroll"
+    }
+  ],
+  "relation_audit": {
+    "supervisor": "Semua supervisor_employee_number null. Tidak ada kolom atasan. Null diizinkan. Tidak dibuat hierarki bertingkat.",
+    "user_link": "Tidak ada user karyawan. Hanya placeholder superadmin tanpa akun yang bisa login.",
+    "ready_chain": "Siap berarti nama, tanggal bergabung terurai, jabatan kolom E, pay group dari pasangan kolom A+B yang eksplisit, dan satu ID payroll yang cocok persis. Lokasi Outlet tidak punya FK. Relasi org-lokasi-jabatan-kelompok-user-atasan belum tertutup."
+  },
+  "counts": {
+    "roster_named": 19,
+    "ready": 6,
+    "blocked": 13,
+    "payroll_not_on_roster": 1
+  }
+}
