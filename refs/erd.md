@@ -64,7 +64,7 @@ CREATE TABLE users (
     deleted_at    TIMESTAMPTZ
 );
 COMMENT ON COLUMN users.role IS
-  'Hanya superadmin | superordinat | subordinat. Migrasi kode saat ini masih DEFAULT tim_blast dan belum ada CHECK ini.';
+  'Hanya superadmin | superordinat | subordinat.';
 ALTER TABLE users ADD CONSTRAINT ck_users_role
   CHECK (role IN ('superadmin', 'superordinat', 'subordinat'));
 
@@ -80,7 +80,7 @@ CREATE TABLE user_tokens (
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 COMMENT ON COLUMN user_tokens.source IS
-  'Nilai baru ERP: web_session | api_key. Nilai CRM lama boleh tersisa dan tidak dipakai modul HRD.';
+  'web_session | api_key.';
 
 CREATE TABLE org_profile (
     id              SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -114,19 +114,7 @@ CREATE TABLE audit_logs (
 COMMENT ON TABLE audit_logs IS 'Immutable. Tidak ada kolom donatur.';
 ```
 
-Migrasi label, **belum dijalankan** dan belum ditulis ke `lib/db/migrations/`:
-
-```sql
-UPDATE users SET role = CASE role
-  WHEN 'admin' THEN 'superadmin'
-  WHEN 'supervisor' THEN 'superordinat'
-  ELSE 'subordinat'
-END
-WHERE role IN ('admin', 'supervisor', 'data_analyst', 'tim_blast', 'read_only');
-ALTER TABLE users ALTER COLUMN role SET DEFAULT 'subordinat';
-```
-
-Jangan menjalankan cuplikan itu sebelum `lib/auth/rbac.ts` hanya mengenal tiga label. `drizzle/seed.ts` masih menulis label CRM. PR ini tidak mengubah berkas itu.
+Pemetaan label lama ke tiga peran sudah ada di `lib/db/migrations/0000_init.sql`. `lib/auth/rbac.ts` hanya mengenal `superadmin`, `superordinat`, dan `subordinat`. `drizzle/seed.ts` membuat `superadmin` hanya jika `ADMIN_EMAIL` dan `ADMIN_PASSWORD` diisi. Tidak ada password bawaan.
 
 Tidak ada tabel `tenants` atau `custom_roles`. Kata sandi tidak disimpan di `employees`.
 
@@ -138,9 +126,7 @@ Tidak ada tabel `tenants` atau `custom_roles`. Kata sandi tidak disimpan di `emp
 
 ## 3. Yang tidak dibawa ke domain HRD
 
-Tabel berikut milik CRM di kode saat ini. Mereka bukan kontrak ERP fase absensi dan payroll, dan dokumen ini tidak mendesain ulang isinya:
-
-`programs`, `campaigns`, `donors`, `transactions`, `field_definitions`, `donor_dynamic_fields`, `donor_search_index`, `prospect_notes`, `vendor_profiles`, `blast_batches`, `blast_records`, `saved_segments`, `saved_segment_results`, `donor_assignment_history`, `distribute_batches`, `extension_configs`, `tag_definitions`.
+Tabel domain donatur tidak ada di `lib/db/migrations/0000_init.sql`. Route dan halaman lama yang masih menyebutnya adalah sisa UI, bukan skema. Jangan membuat tabel itu kembali.
 
 `data_imports` masih ada di kode (ada `blast_batch_id`). Impor HRD boleh memakai tabel itu nanti tanpa mengubah pola wizard. Bukan tabel domain baru.
 
@@ -921,12 +907,9 @@ Tidak ada karyawan contoh dan tidak ada nominal manajer yang di-seed sebagai def
 
 Sumber roster dan batas field ada di `refs/seed-hrd.md` serta `refs/seed-hrd.json`.
 
-Yang dapat di-seed **tanpa** tabel baru, pada migrasi yang ada sekarang:
+`npm run db:migrate` lalu `npm run db:seed`. Seed membaca `refs/seed-hrd.json`.
 
-- `org_profile` dan `app_config`, lewat `drizzle/seed.ts` yang sudah ada. PR ini tidak mengganti nilainya.
-- `users.role` secara tipe kolom muat tiga label baru, tetapi seed yang jalan masih menulis label CRM, dan `checkPermission` belum mengenal tiga label itu.
-
-Satu berkas `lib/db/migrations/0000_init.sql` membuat lembaga, akun, dan tabel HRD. Berkas itu tidak membuat tabel donatur. Jika database lama masih menyimpan tabel CRM, berkas yang sama menghapusnya dan tidak menghapus tabel HRD yang sudah ada. Data donatur tidak dikonversi. `drizzle/seed.ts` membaca `refs/seed-hrd.json`. Orang tanpa tanggal bergabung, jabatan, kelompok gaji, atau nomor tetap `draft` dengan kolom itu NULL. Enam orang yang field-nya lengkap berstatus `active`. Tidak ada baris `payroll_runs`. `in_payroll` hanya untuk `active`.
+Satu berkas `lib/db/migrations/0000_init.sql` membuat lembaga, akun, dan tabel HRD. Berkas itu tidak membuat tabel donatur. Jika database lama masih menyimpan tabel CRM, berkas yang sama menghapusnya dan tidak menghapus tabel HRD yang sudah ada. Data donatur tidak dikonversi. Orang tanpa tanggal bergabung, jabatan, kelompok gaji, atau nomor tetap `draft` dengan kolom itu NULL. Enam orang yang field-nya lengkap berstatus `active`. Tidak ada baris `payroll_runs`. `in_payroll` hanya untuk `active`. Semua baris `validation_required`. Ini belum siap production: API dan UI HRD belum dibangun.
 
 Placeholder `superadmin` di JSON tidak punya email dan tidak punya password. Kolom `users.email` dan `users.password_hash` pada migrasi saat ini `NOT NULL`, jadi placeholder itu tidak di-insert.
 
