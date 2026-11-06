@@ -2,7 +2,9 @@
 
 Berkas data: `refs/seed-hrd.json`.
 
-Berkas ini **tidak dijalankan**. `drizzle/seed.ts` dan migrasi di `lib/db/migrations/` masih menulis tabel CRM (`users`, `org_profile`, `app_config`, donatur, dan seterusnya). Tabel `employees`, `locations`, `positions`, dan `pay_groups` hanya ada di `refs/erd.md`. Tidak ada migrasi baru pada perubahan ini, dan tidak ada baris karyawan yang ditambahkan ke `drizzle/seed.ts`.
+`drizzle/seed.ts` membaca berkas JSON ini setelah migrasi `0004_hrd_domain.sql`. Perintahnya `npm run db:migrate` lalu `npm run db:seed`. Superadmin hanya dibuat bila `ADMIN_EMAIL`, `ADMIN_NAME`, dan `ADMIN_PASSWORD` ada di environment. Tidak ada password bawaan.
+
+Orang tanpa field wajib masuk sebagai `draft` dengan kolom yang kosong dibiarkan NULL. Enam orang yang lengkap berstatus `active` dan `in_payroll`. Tidak ada `payroll_runs`. Semua baris `validation_required`. Ini belum siap production.
 
 ## Sumber
 

@@ -716,7 +716,7 @@ Status mapping in `vendor_profiles.status_mapping` (JSONB).
 
 ### 5.2 RBAC
 
-Fungsi tetap `checkPermission(role, resource, action)` di `lib/auth/rbac.ts`. Kontrak ERP hanya mengenal `superadmin`, `superordinat`, dan `subordinat`. Label `admin`, `supervisor`, `data_analyst`, `tim_blast`, dan `read_only` tidak dipertahankan. Cuplikan di bawah ini adalah kode boilerplate yang masih ada di repo, bukan daftar peran produk. Migrasi label ada di `refs/erd.md` dan belum dijalankan. Matriks menu ada di PRD bagian 5. Isolasi data ada di query, bukan di sembunyinya menu.
+Fungsi tetap `checkPermission(role, resource, action)` di `lib/auth/rbac.ts`. Kontrak ERP hanya mengenal `superadmin`, `superordinat`, dan `subordinat`. Label `admin`, `supervisor`, `data_analyst`, `tim_blast`, dan `read_only` tidak dipertahankan. Kode `lib/auth/rbac.ts` memakai tiga label. Migrasi kolom ada di `lib/db/migrations/0004_hrd_domain.sql`. Matriks menu ada di PRD bagian 5. Cuplikan di bawah ini adalah pola fungsi yang dipertahankan. Nama peran di contoh lama berikut bukan kontrak yang berlaku. Isolasi data ada di query, bukan di sembunyinya menu.
 
 | Role | Dashboard | Donors | Import | Export | Assign | Config | Audit |
 |---|---|---|---|---|---|---|---|

@@ -12,7 +12,7 @@ Daftar menu, submenu, dan matriks baca/buat/ubah/setujui ada di PRD bagian 5. Me
 
 ## Seed
 
-`npm run db:seed` menjalankan `drizzle/seed.ts` untuk tabel CRM yang sudah ada di migrasi. Roster HRD tidak ikut perintah itu. Batas field dan berkas terstrukturnya ada di `refs/seed-hrd.md`. Jangan menganggap seed karyawan sudah lengkap.
+`npm run db:migrate` lalu `npm run db:seed`. Roster dibaca dari `refs/seed-hrd.json`. Akun superadmin hanya dibuat bila environment berisi `ADMIN_EMAIL`, `ADMIN_NAME`, dan `ADMIN_PASSWORD`. Tidak ada password bawaan. Orang yang field wajibnya kosong tetap `draft` dan tidak masuk payroll run. Jangan menganggap seed sudah lengkap.
 
 ## Menjalankan aplikasi
 

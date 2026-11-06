@@ -6,7 +6,7 @@ export async function getServerSession(): Promise<{ user: SessionUser }> {
   const rows = await sql`
     SELECT id, nama, email, role
     FROM users
-    WHERE role = 'admin' AND deleted_at IS NULL AND is_active = TRUE
+    WHERE role = 'superadmin' AND deleted_at IS NULL AND is_active = TRUE
     ORDER BY id
     LIMIT 1
   `;
@@ -17,7 +17,7 @@ export async function getServerSession(): Promise<{ user: SessionUser }> {
         id: "0",
         nama: "Admin Sistem",
         email: process.env.ADMIN_EMAIL ?? "admin@rn.org",
-        role: "admin",
+        role: "superadmin",
       },
     };
   }

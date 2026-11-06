@@ -17,7 +17,7 @@ type UserRow = {
   created_at: string | null;
 };
 
-const empty = { nama: "", email: "", password: "", role: "tim_blast", isActive: true };
+const empty = { nama: "", email: "", password: "", role: "subordinat", isActive: true };
 
 export function UsersManager({ rows }: { rows: UserRow[] }) {
   const router = useRouter();
