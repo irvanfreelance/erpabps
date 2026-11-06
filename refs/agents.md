@@ -1,245 +1,115 @@
-# agents.md — Agent Definitions for CRM Relawan Nusantara
+# agents.md — ERP HRD Ayam Bakar Pucuk Singkong
 
-## Overview
+Panduan agen untuk absensi dan payroll IPA. Pola folder dan kode yang sudah ada tidak dipindah. Domain donatur, program, campaign, tag, blast, dan segmen bukan pekerjaan ini.
 
-Agent definitions untuk Claude Code multi-agent workflow pada project CRM RN. Setiap agent memiliki scope, tools, dan rules yang spesifik untuk memastikan kualitas dan konsistensi output.
+Dokumen produk: `refs/prd.md`, `refs/erd.md`, `refs/trd.md`, `refs/claude.md`, `refs/seed-hrd.md`.
+
+Stok, pembelian, gudang, dan HPP di luar scope. Jangan buat tabel atau menu untuk itu.
+
+API dan UI HRD belum dibangun. Seed roster bukan tanda siap production.
 
 ---
 
 ## Agent: `db-engineer`
 
-**Role:** Database Engineer — handles all SQL, migrations, and data layer work.
-
-**Scope:**
-- `lib/db/queries/*.ts` — write and modify raw SQL query functions
-- `lib/db/index.ts` — database connection configuration
-- `drizzle/schema.ts` — Drizzle schema for migration generation ONLY
-- `drizzle/seed.ts` — idempotent seed script
-- `lib/db/migrations/` — review generated migrations
+**Scope:** `lib/db/migrations/0000_init.sql`, `drizzle/schema.ts`, `drizzle/seed.ts`, `drizzle/migrate.ts`, `lib/db/index.ts`, `lib/db/audit.ts`. SQL produk baru tetap di `app/api/{model}/route.ts`, bukan di `lib/db/queries/`.
 
 **Rules:**
-1. ALL queries are raw SQL using `@neondatabase/serverless` tagged template literals
-2. NEVER use Drizzle ORM query builder (`.select()`, `.insert()`, etc.) — only `drizzle-kit` CLI
-3. Every query function must be typed: accept typed params, return typed results
-4. Use parameterized queries — NEVER string concatenation for values
-5. For dynamic WHERE clauses (query builder), use `sql.unsafe()` with pre-validated fragments
-6. Always use partial indexes with `WHERE deleted_at IS NULL` for soft-deleted tables
-7. After INSERT/UPDATE on `donors` or `transactions`, call `fn_rebuild_search_index(donor_id)`
-8. Donor filter queries MUST use `donor_search_index.search_doc` — never query `transactions` directly
-9. `programs.slug` is the key in `program_participation` — never use program name
-10. `bulan_program CHAR(7)` is auto-derived via trigger — never set manually
+1. Query memakai tagged template `@neondatabase/serverless`. Jangan menggabung string untuk nilai.
+2. Drizzle ORM (`.select()`, `.insert()`) tidak dipakai di aplikasi. `drizzle/schema.ts` hanya cermin sebagian. DDL yang dijalankan adalah `lib/db/migrations/0000_init.sql` lewat `npm run db:migrate`.
+3. `CREATE TABLE` HRD wajib `IF NOT EXISTS`. Jangan drop tabel HRD yang sudah berisi data.
+4. Indeks parsial `WHERE deleted_at IS NULL` pada master yang soft-delete.
+5. PK `BIGSERIAL`. Status `VARCHAR`, bukan ENUM database. Waktu `TIMESTAMPTZ`.
+6. Angka bisnis (telat, payday, jepitan jam, lembur, bonus) dibaca dari `setting_values` menurut scope dan tanggal. Jangan hardcode ke jabatan atau ke kode.
+7. Run `approved` atau `paid` membaca `payroll_run_snapshots`. Jangan hitung ulang.
+8. `join_date` kosong tetap NULL. Jangan mengisi tanggal palsu. `record_status = active` hanya jika nomor, jabatan, kelompok gaji, dan tanggal bergabung ada.
+9. `employees.supervisor_employee_id` satu nilai atau NULL. Tidak ada hierarki bertingkat.
+10. `audit_logs` hanya INSERT. Tidak ada kolom donatur.
 
-**Tools:** PostgreSQL, Neon DB serverless driver, Drizzle Kit CLI
-
-**Example task:** "Add a query function to search donors by multiple program participation with temporal filters"
+**Contoh tugas:** "Tambah pay rule per kelompok tanpa mengubah kelompok lain."
 
 ---
 
 ## Agent: `api-engineer`
 
-**Role:** API Route Engineer — builds Next.js API routes following strict patterns.
-
-**Scope:**
-- `app/api/**/*.ts` — API route handlers
-- `lib/validators/*.ts` — Zod validation schemas
-- `lib/auth/rbac.ts` — RBAC permission definitions
-- `lib/auth/session.ts` — session helpers
-- `types/api.ts` — API request/response types
+**Scope:** `app/api/**/*.ts`, `lib/validators/*.ts`, `lib/auth/rbac.ts`, `lib/auth/session.ts`, `types/`.
 
 **Rules:**
-1. Every route handler follows the exact pattern:
-   ```
-   getServerSession() → checkPermission() → validate(zod) → queryFunction() → logAudit() → NextResponse.json()
-   ```
-2. GET routes: parse `searchParams`, call list/get query function, return paginated JSON
-3. POST/PUT routes: parse body with Zod, call create/update query, audit log, return entity
-4. DELETE routes: soft delete (set `deleted_at`), audit log, return `{ success: true }`
-5. Error responses: `{ error: string | ZodFlattenedError }` with correct HTTP status
-6. Never write SQL in route files — always call functions from `lib/db/queries/`
-7. File upload routes use `@vercel/blob` for storage
-8. Export routes stream response for large datasets
-9. All mutations must be logged to `audit_logs`
-10. RBAC check required for every mutating endpoint
+1. Pola route: `getServerSession()` → `checkPermission()` → Zod → SQL di file route itu → `logAudit()` → `NextResponse.json()`.
+2. Tiga peran saja: `superadmin`, `superordinat`, `subordinat`. Jangan menambah peran keempat atau tabel `custom_roles`.
+3. Isolasi ada di SQL, bukan di sembunyinya menu.
+   - `superadmin`: seluruh lokasi dan tim pada deployment (`org_profile` satu baris).
+   - `superordinat`: diri sendiri dan karyawan yang `supervisor_employee_id` menunjuk ke dia. Tidak lintas tim.
+   - `subordinat`: hanya baris miliknya (profil, jadwal, absensi, slip, kasbon, kontrak).
+4. Mutasi tercatat di `audit_logs`. Argumen `donorId` pada `logAudit` diabaikan.
+5. Presensi backdate, screening kasbon, ubah lembaga, ubah aturan ber-floor, dan setujui payroll hanya `superadmin`, lewat `approval_policies` bila kebijakan itu aktif.
+6. Shift `backup` memaksa menit telat payroll = 0.
+7. Kasbon memotong gaji hanya setelah screening. Cicilan dan interval datang dari pengajuan, bukan konstanta.
+8. Jangan mengembalikan NIK, rekening, atau nomor HP ke peran yang tidak berhak. Jangan menaruh data pribadi di contoh, seed, atau log tes.
 
-**Tools:** Next.js App Router, Zod, next-auth
-
-**Example task:** "Create the API routes for blast batch CRUD with import endpoint"
+**Contoh tugas:** "Route rekap absensi yang menolak rekan satu tim untuk subordinat."
 
 ---
 
 ## Agent: `fe-engineer`
 
-**Role:** Frontend Engineer — builds Server & Client Components with shadcn/ui.
-
-**Scope:**
-- `app/(dashboard)/**/*.tsx` — page components (Server Components by default)
-- `app/(auth)/**/*.tsx` — auth pages
-- `components/**/*.tsx` — all reusable components
-- `hooks/*.ts` — custom React hooks
-- `app/globals.css` — global styles (Tailwind)
-- `tailwind.config.ts` — Tailwind configuration
+**Scope:** `app/(dashboard)/**/*.tsx`, `components/**/*.tsx`, `hooks/*.ts`, `app/globals.css`.
 
 **Rules:**
-1. Default to Server Components — add `"use client"` ONLY when the component needs:
-   - Event handlers (onClick, onChange, onSubmit)
-   - React hooks (useState, useEffect, useRef)
-   - Browser APIs
-   - Interactive libraries (Recharts, dnd-kit, Tiptap)
-2. Data fetching in Server Components via `async/await` calling query functions directly
-3. Client Components receive data as props from parent Server Components
-4. Use shadcn/ui components — DO NOT create custom primitives
-5. Icons: Lucide React ONLY — NO emoji except ✓
-6. Font: Source Sans Pro, primary color `#01665a`
-7. Sidebar: collapsible, bg `#01665a`, overlay on mobile (< 768px)
-8. All list pages use `DataTable` reusable component
-9. Forms use shadcn/ui `Form` + `useForm` + Zod resolver
-10. Every page exports `metadata` with title and description
-11. Responsive: mobile-first, test at 375px, 768px, 1024px, 1280px
-12. URL state for filters/pagination via `nuqs`
+1. Server Component secara default. `"use client"` hanya untuk event, hook, atau pustaka interaktif.
+2. Server Component memuat data lewat `fromRoute`. Jangan `fetch` ke URL `/api` sendiri. Jangan menulis SQL di halaman.
+3. shadcn/ui, Lucide, `DataTable`, form Zod, `nuqs` untuk filter. Font dan warna mengikuti `org_profile`. Default kolom masih `#01665a` sampai lembaga disimpan.
+4. Menu yang disembunyikan bukan pengaman. Tombol yang tidak berhak tetap harus ditolak server.
+5. Halaman donatur, campaign, blast, dan tag yang masih ada adalah sisa. Jangan menambah fitur di sana. Menu target ada di `refs/prd.md` bagian 5, dan belum dipasang.
+6. Slip dan daftar tidak menampilkan NIK atau rekening.
 
-**Tools:** Next.js, React, shadcn/ui, Tailwind CSS, Recharts, dnd-kit, Tiptap
-
-**Example task:** "Build the donor list page with DataTable and integrated QueryBuilder"
-
----
-
-## Agent: `extension-engineer`
-
-**Role:** Chrome Extension Engineer — builds the web.whatsapp overlay extension.
-
-**Scope:**
-- `extension/` — entire Chrome Extension directory
-- `extension/manifest.json` — Manifest V3 config
-- `extension/content.ts` — content script injected into web.whatsapp.com
-- `extension/sidebar/` — React sidebar overlay app
-- `extension/background.ts` — service worker
-- `extension/popup/` — popup UI for login/settings
-
-**Rules:**
-1. Manifest V3 — no Manifest V2 APIs
-2. Content script targets `web.whatsapp.com` only
-3. Phone extraction via server-side selectors from `extension_configs` table
-4. Sidebar is a React app injected into the page DOM (shadow DOM recommended)
-5. API authentication via per-user token stored in `chrome.storage.local` — NOT localStorage or IndexedDB
-6. Extension MUST NOT read chat content — only extract phone number from DOM
-7. If auto-detect fails 3x consecutively, show manual phone input
-8. All API calls via HTTPS to CRM backend
-9. Support light/dark mode matching web.whatsapp theme
-10. Quick reply templates fetched from API, support `{nama}` variable substitution
-
-**Tools:** Chrome Extension APIs (V3), React, Tailwind CSS, TypeScript
-
-**Example task:** "Implement the phone number extraction with fallback selectors and manual input"
+**Contoh tugas:** "Halaman jadwal bulanan P1, P2, Middle, dan Shift 3 untuk bawahan langsung."
 
 ---
 
 ## Agent: `import-engineer`
 
-**Role:** Data Import/Export Specialist — handles file processing pipelines.
-
-**Scope:**
-- `lib/utils/import-parser.ts` — CSV/XLSX parsing logic
-- `lib/utils/export.ts` — CSV/XLSX/PDF generation
-- `lib/utils/phone.ts` — phone number normalization
-- `app/api/data-imports/` — import API routes
-- `app/api/donors/export/` — export API routes
-- `app/api/blast-batches/import/` — blast report import
-- `components/forms/import-wizard.tsx` — multi-step import UI
+**Scope:** `drizzle/seed.ts`, `refs/seed-hrd.json`, `lib/utils/export-xlsx.ts`, dan nanti route impor yang mengikuti pola `app/api/{model}/route.ts`.
 
 **Rules:**
-1. Parse CSV/XLSX using `exceljs` — handle encoding (UTF-8, ISO-8859-1)
-2. Phone normalization via `libphonenumber-js` → format `62xxxxxxxxxx`
-3. Deduplication on `no_hp_canonical` — classify rows as: new, merge, error
-4. Import is atomic — wrap in transaction, rollback on error (NFR-23)
-5. Batch INSERT 1000 rows per transaction for performance
-6. After import completion, trigger:
-   - `fn_rebuild_search_index()` for affected donors
-   - `fn_recalculate_rfm()` if transactions imported
-7. Blast report import uses `vendor_profiles.column_mapping` for column matching
-8. Status mapping via `vendor_profiles.status_mapping`
-9. Export uses streaming API for large datasets (> 10k rows)
-10. PDF generation via `jspdf` + `jspdf-autotable`
-11. All files stored in Vercel Blob with structured path naming
+1. Perintah yang berlaku: `npm run db:migrate` kemudian `npm run db:seed`.
+2. Superadmin hanya terbentuk bila environment berisi `ADMIN_EMAIL`, `ADMIN_NAME`, dan `ADMIN_PASSWORD`. Tidak ada password bawaan di repo.
+3. Roster 19 orang: 6 `active` dan ikut `in_payroll`, 13 `draft` dan tidak ikut payroll. Semua `validation_required`. Tidak ada `payroll_runs`.
+4. Jangan menganggap seed lengkap atau siap production. API dan UI HRD belum ada. Nama yang tidak persis dengan payroll tidak digabung. Lokasi "Outlet" belum punya FK.
+5. Impor berkas nanti memakai `exceljs` di route yang sama polanya dengan route lain. Jangan membuat pipeline kedua dan jangan menyalin NIK, KK, HP, atau rekening ke dokumen.
 
-**Tools:** exceljs, jspdf, libphonenumber-js, Vercel Blob
-
-**Example task:** "Implement the blast report import flow with vendor column mapping"
+**Contoh tugas:** "Tolak impor baris tanpa tanggal bergabung alih-alih mengisi tanggal hari ini."
 
 ---
 
 ## Agent: `qa-engineer`
 
-**Role:** Quality Assurance — writes tests and validates performance NFRs.
-
-**Scope:**
-- `__tests__/` — test files
-- `playwright/` — E2E test configs and specs
-- `vitest.config.ts` — unit test config
+**Scope:** tes di sekitar route, validator, dan seed. Belum ada skrip `test` di `package.json`.
 
 **Rules:**
-1. Unit tests for every query function in `lib/db/queries/`
-2. Unit tests for every Zod schema in `lib/validators/`
-3. Unit tests for utility functions (phone normalization, date formatting)
-4. Integration tests for API routes (mock DB, test full request lifecycle)
-5. E2E tests for critical flows:
-   - Login → Dashboard
-   - Search donors with query builder
-   - Import CSV with preview → apply
-   - Bulk assign donors
-   - Create/edit prospect note
-6. Performance benchmarks:
-   - Query with 1-3 conditions: assert < 500ms
-   - Query with 5+ conditions: assert < 3s
-   - Donor profile load: assert < 2s
-   - Import 50k rows: assert < 5 min
-7. Test data uses seed from ERD v2
+1. Uji yang wajib saat API ada: subordinat tidak melihat rekan; superordinat tidak melihat tim lain; backup tidak memotong telat; draf tidak masuk run; run approved tidak berubah setelah setting diubah.
+2. Jangan membuat fixture berisi NIK, HP, rekening, atau password sungguhan.
+3. `npm run lint` masih gagal pada komponen UI lama. Jangan "memperbaiki" itu dengan menghapus halaman kecuali diminta.
+4. Performa lama untuk pencarian donatur tidak dipakai.
 
-**Tools:** Vitest, Playwright, test containers
-
-**Example task:** "Write E2E test for the donor import flow: upload CSV → preview → apply → verify data"
+**Contoh tugas:** "Dua karyawan draft tidak muncul di generate payroll."
 
 ---
 
-## Agent Orchestration
-
-### Development Phase Order
+## Urutan kerja
 
 ```
-Phase 1: Foundation
-  db-engineer    → Schema + migrations + seed + core query functions
-  api-engineer   → Auth setup + core CRUD API routes
-  fe-engineer    → Layout + sidebar + DataTable + auth pages
-
-Phase 2: Core Features
-  db-engineer    → Search index queries + RFM + distribution queries
-  api-engineer   → Search API + assign/distribute + import endpoints
-  fe-engineer    → Donor pages + QueryBuilder + Dashboard + Import wizard
-  import-engineer → Import/export pipeline
-
-Phase 3: Blast & Segments
-  db-engineer    → Blast + segment queries
-  api-engineer   → Blast + segment API routes
-  fe-engineer    → Blast pages + Segment builder + Prospect notes
-
-Phase 4: Extension
-  extension-engineer → Chrome Extension full implementation
-
-Phase 5: QA
-  qa-engineer    → Full test suite + performance validation
+Sudah ada: migrasi 0000_init.sql dan seed roster draft/active
+Berikutnya: API absensi, jadwal, kasbon, payroll, pengaturan
+Sesudah API: halaman menu PRD bagian 5
+Bukan sekarang: stok/HPP, extension WhatsApp, halaman donatur
 ```
 
-### Agent Communication Protocol
+## Resolusi
 
-- Agents share context via this document + `claude.md` + `trd.md`
-- DB schema is the single source of truth (`erd_single_v2.md`)
-- Query functions are the contract between `db-engineer` and `api-engineer`
-- TypeScript types in `types/` are the contract between `api-engineer` and `fe-engineer`
-- API routes are the contract between `fe-engineer`/`extension-engineer` and backend
+1. Aturan produk → `refs/prd.md`
+2. Kolom dan relasi → `refs/erd.md` dan `lib/db/migrations/0000_init.sql`
+3. Pola folder dan route → `refs/trd.md` bagian 2. Jangan membuat `lib/db/queries/` atau paket baru.
+4. `refs/crm_rn_app.jsx` bukan spesifikasi.
 
-### Conflict Resolution
-
-1. Schema conflicts → `erd_single_v2.md` wins
-2. UI conflicts → `crm_rn_app.jsx` artifact as reference
-3. Feature conflicts → PRD CRM RN v2 wins
-4. Technical conflicts → `trd.md` wins
-5. If still ambiguous → escalate to PM (Cinte)
+Extension WhatsApp dan artefak CRM di `refs/` bukan backlog rilis ini.

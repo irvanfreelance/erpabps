@@ -1,211 +1,67 @@
-# CLAUDE.md — CRM Relawan Nusantara
+# CLAUDE.md — ERP HRD Ayam Bakar Pucuk Singkong
 
-## Project Overview
+Absensi dan payroll IPA. Satu lembaga (`org_profile`). Bukan CRM donatur. Stok, pembelian, dan HPP di luar scope.
 
-CRM untuk Yayasan Relawan Nusantara (charity). Mengelola donatur, transaksi donasi, blast campaign WhatsApp, prospecting, dan segmentasi donor berbasis RFM.
+API serta UI HRD belum ada. Jangan menulis bahwa sistem siap production.
 
-## Tech Stack
+## Stack yang dipakai
 
-- **Framework:** Next.js 15 App Router — SSR first, NO SPA
-- **Language:** TypeScript strict
-- **Database:** PostgreSQL 15+ via Neon DB serverless (`@neondatabase/serverless`)
-- **Hosting:** Vercel (region: sin1 Singapore)
-- **Storage:** Vercel Blob (imports, exports, reports)
-- **UI:** shadcn/ui + Tailwind CSS 4 + Lucide React icons
-- **Auth:** next-auth (Credentials provider, JWT session)
+- Next.js App Router, TypeScript, Tailwind, komponen yang sudah ada di `components/`
+- PostgreSQL lewat `@neondatabase/serverless` untuk host Neon. URL Postgres lain pada skrip migrasi/seed memakai `pg`
+- SQL mentah di `app/api/{model}/route.ts`. `logAudit` hanya di `lib/db/audit.ts`
+- Drizzle tidak dipakai sebagai query builder. Migrasi yang dijalankan: `npm run db:migrate` membaca `lib/db/migrations/0000_init.sql`
+- Seed: `npm run db:seed` membaca `refs/seed-hrd.json`
 
-## Critical Rules — NEVER Break These
+## Aturan yang tidak dilanggar
 
-### 1. NO ORM — Raw SQL Only
-- ALL database queries are raw SQL in `lib/db/queries/*.ts`
-- Drizzle is ONLY for `drizzle-kit generate` (migration) and `drizzle-kit migrate` (apply)
-- NEVER import from `drizzle-orm` in application code
-- NEVER write SQL inside API routes or components — always call query functions from `lib/db/queries/`
+1. Parameter query tidak digabung dari string.
+2. Halaman default Server Component. Data lewat `fromRoute`, bukan `fetch` ke origin sendiri, dan bukan SQL di halaman.
+3. `"use client"` hanya bila ada event, hook, atau pustaka interaktif.
+4. PK `BIGSERIAL`. Status `VARCHAR`. `audit_logs` hanya INSERT dan tidak punya kolom donatur.
+5. Tiga peran: `superadmin`, `superordinat`, `subordinat`. Satu atasan atau NULL. Tidak ada peran `admin`, `supervisor`, `tim_blast`, `data_analyst`, atau `read_only`.
+6. Setiap daftar memfilter di SQL. Menyembunyikan menu bukan izin.
+7. Angka kalender, telat, lembur, bonus, dan jepitan jam datang dari `setting_values` (scope + tanggal). Run `approved`/`paid` memakai snapshot.
+8. Jangan hardcode gaji seseorang ke jabatan. Jangan isi tanggal bergabung yang tidak ada di sumber.
+9. Jangan menaruh NIK, HP, rekening, atau password di contoh, tes, atau log.
 
-### 2. NO SPA — SSR First
-- Default to Server Components (no `"use client"` directive)
-- `"use client"` ONLY for: forms, modals, charts (Recharts), query builder, drag-and-drop, interactive tables
-- Data fetching in Server Components via async/await — NEVER `useEffect` + `fetch`
-- Every page exports `metadata` for SEO
+## Peran dan data
 
-### 3. Database Schema
-- Primary keys: `BIGSERIAL` — NO UUID anywhere
-- Lookup/status fields: `VARCHAR` — NO database ENUM types
-- Soft delete via `deleted_at TIMESTAMPTZ` (donors, programs, campaigns)
-- `audit_logs` table is immutable — INSERT only, no UPDATE/DELETE
-- Phone numbers stored as `62xxxxxxxxxx` in `no_hp_canonical`
-
-### 4. Search Index Pattern
-- ALL donor filter/search queries MUST go through `donor_search_index` table
-- NEVER query `transactions` table directly to filter donors
-- After any donor or transaction change, call `fn_rebuild_search_index(donor_id)`
-- `program_participation` in search_doc uses `programs.slug` as key (immutable)
-
-### 5. API Route Pattern
-```
-app/api/{resource}/route.ts → GET (list), POST (create)
-app/api/{resource}/[id]/route.ts → GET (detail), PUT (update), DELETE (soft)
-```
-Every route must:
-1. Check session via `getServerSession()`
-2. Check RBAC via `checkPermission(role, resource, action)`
-3. Validate input via Zod schema
-4. Call query function from `lib/db/queries/`
-5. Log mutation to `audit_logs` via `logAudit()`
-6. Return typed JSON response
-
-### 6. File Organization
-```
-lib/db/queries/     → Raw SQL query functions (one file per model)
-lib/db/index.ts     → Neon DB connection
-lib/validators/     → Zod schemas
-lib/auth/           → next-auth config, session helper, RBAC
-lib/utils/          → Phone normalization, formatting, blob helpers
-components/ui/      → shadcn/ui primitives (DO NOT modify)
-components/layout/  → Sidebar, header, mobile nav
-components/data-table/ → Reusable table with sort/filter/select/bulk
-components/query-builder/ → Multi-condition filter builder
-components/forms/   → Form components per entity
-components/donor/   → Donor-specific components
-components/dashboard/ → Chart/stat components
-components/shared/  → Cross-cutting reusable components
-hooks/              → Custom React hooks
-types/              → TypeScript type definitions
-```
-
-## Conventions
-
-### Naming
-- Files: `kebab-case.ts` (e.g., `blast-records.ts`, `data-table.tsx`)
-- Components: `PascalCase` (e.g., `DataTable`, `QueryBuilder`)
-- Functions: `camelCase` (e.g., `getDonorById`, `listBlastBatches`)
-- DB columns: `snake_case` (e.g., `no_hp_canonical`, `follow_up_status`)
-- API routes: `kebab-case` paths (e.g., `/api/blast-batches`, `/api/field-definitions`)
-- Zod schemas: `{action}{Entity}Schema` (e.g., `createDonorSchema`, `updateCampaignSchema`)
-
-### SQL Query Functions
-```typescript
-// lib/db/queries/donors.ts
-import { getDb } from '../index';
-
-// Always return typed results
-export async function getDonorById(id: bigint): Promise<DonorRow | null> {
-  const sql = getDb();
-  const rows = await sql`SELECT ... FROM donors WHERE id = ${id}`;
-  return rows[0] ?? null;
-}
-
-// List functions accept options object
-export async function listDonors(opts: ListDonorsOptions): Promise<PaginatedResult<DonorRow>> {
-  // ...
-}
-```
-
-### Component Pattern
-```typescript
-// Server Component (default)
-export default async function DonorsPage() {
-  const donors = await listDonors({ page: 1, limit: 25 });
-  return <DonorTable data={donors} />;
-}
-
-// Client Component (only when needed)
-"use client";
-export function DonorForm({ donor }: { donor?: DonorRow }) {
-  // Interactive form with shadcn/ui Form + Zod
-}
-```
-
-### Error Handling
-- API routes return `{ error: string }` with appropriate HTTP status
-- Use `NextResponse.json()` — not `Response.json()`
-- Zod validation errors: `{ error: parsed.error.flatten() }` with 400
-- Auth errors: 401 (unauthenticated), 403 (unauthorized)
-- Not found: 404
-- Server errors: 500 with generic message (no stack trace in response)
-
-## Design System
-
-- **Primary:** `#01665a` (teal)
-- **Sidebar:** bg `#01665a`, text white
-- **Font:** Source Sans Pro (self-hosted)
-- **Icons:** Lucide React — NO emoji except ✓ checkmark
-- **Logo:** URL with `referrerPolicy="no-referrer"` + `crossOrigin="anonymous"` + `onError` → Shield icon fallback
-- **Tables:** Use reusable `DataTable` component with shadcn/ui Table
-- **Forms:** shadcn/ui Form + Zod resolver
-- **Toasts:** sonner (shadcn/ui compatible)
-- **Mobile:** Sidebar overlay with backdrop on < 768px, auto-close on nav
-
-## RBAC Roles
-
-| Role | Access Level |
+| Peran | Melihat |
 |---|---|
-| `admin` | Full access to everything |
-| `supervisor` | Read + assign + import/export, no config |
-| `data_analyst` | Read + query + import/export |
-| `tim_blast` | Worklist + prospect notes only |
-| `read_only` | Read-only access to data |
+| `superadmin` | Semua lokasi dan tim di deployment ini |
+| `superordinat` | Diri dan bawahan langsung |
+| `subordinat` | Profil, jadwal, absensi, slip, kasbon, dan kontrak sendiri |
 
-## 21 Database Tables
+`checkPermission` ada di `lib/auth/rbac.ts`. Matriks menu ada di `refs/prd.md` bagian 5.
 
-`app_config`, `users`, `user_tokens`, `programs`, `campaigns`, `donors`, `transactions`, `field_definitions`, `donor_dynamic_fields`, `donor_search_index`, `prospect_notes`, `vendor_profiles`, `blast_batches`, `blast_records`, `saved_segments`, `saved_segment_results`, `donor_assignment_history`, `distribute_batches`, `data_imports`, `audit_logs`, `extension_configs`
+## Domain yang berlaku
 
-Full DDL: see `erd_single_v2.md`
+- Shift outlet: `P1`, `P2`, `MID`, `S3`. Shift `backup` tidak kena denda telat.
+- Dapur mingguan default jam aktual. Jepitan 05:00 hanya override scope, bukan aturan semua orang.
+- Payday bulanan default tanggal 1, lewat setting, bukan konstanta di calculator.
+- Kelompok gaji terpisah. Denda telat lembaga default `none`.
+- Kasbon: cicilan dari pengajuan, potong setelah screening `superadmin`.
+- Kontrak: opsi 1 bulan, 3 bulan, 1 tahun. Hari pengingat kosong sampai diisi.
 
-## Key Dependencies (do not remove)
-```json
-{
-  "recharts": "charts",
-  "@dnd-kit/core": "drag-and-drop",
-  "@dnd-kit/sortable": "drag-and-drop",
-  "jspdf": "PDF export",
-  "jspdf-autotable": "PDF tables",
-  "exceljs": "XLSX import/export",
-  "@tiptap/react": "rich text editor",
-  "next-auth": "authentication",
-  "zod": "validation",
-  "sonner": "toast notifications",
-  "nuqs": "URL query state",
-  "date-fns": "date formatting",
-  "libphonenumber-js": "phone normalization"
-}
+## Seed
+
+Wajib environment `DATABASE_URL`. Akun superadmin hanya bila `ADMIN_EMAIL`, `ADMIN_NAME`, dan `ADMIN_PASSWORD` diisi. Tidak ada password default.
+
+Hasil seed saat ini: 19 orang, 6 `active`, 13 `draft`, nol payroll run, semua `validation_required`. Lokasi "Outlet" belum FK. Atasan NULL. Ini data draf untuk dikembangkan, bukan go-live.
+
+## Route baru
+
+```
+app/api/{resource}/route.ts
+app/api/{resource}/[id]/route.ts
 ```
 
-## Performance Targets
-- Simple query (1-3 conditions): < 500ms
-- Complex query (5+ conditions): < 3s
-- Donor profile page load: < 2s
-- Extension sidebar: < 1s
-- Import 50k rows: < 5 min
-- Export 50k rows: < 30s
-- RFM recalculation (full): < 10 min
-- Auto-distribute 5k donors: < 30s
+Isi: sesi, izin, Zod, SQL, audit, JSON. Soft delete dengan `deleted_at` bila master memang diarsipkan.
 
-## Common Tasks
+Jangan menambah `lib/db/queries/`. Jangan memindah folder di `refs/trd.md` bagian 2.
 
-### Add a new API endpoint
-1. Create route file in `app/api/{resource}/route.ts`
-2. Create query function in `lib/db/queries/{resource}.ts`
-3. Create Zod schema in `lib/validators/{resource}.ts`
-4. Add RBAC permissions in `lib/auth/rbac.ts`
-5. Add audit logging for mutations
+## Sisa yang bukan spesifikasi
 
-### Add a new page
-1. Create page in `app/(dashboard)/{page}/page.tsx` (Server Component)
-2. Add to sidebar nav config in `components/layout/sidebar.tsx`
-3. Use `DataTable` for list views
-4. Use shadcn/ui components for forms
-5. Export `metadata` for SEO
+Halaman dan route `/donors`, `/campaigns`, `/programs`, `/tags`, `/blast-batches`, dan impor CRM masih ter-compile. Tabelnya tidak ada. Jangan menambah fitur di sana. `npm run lint` masih gagal pada komponen UI lama.
 
-### Add a dynamic field
-1. Admin creates via `/api/field-definitions` (POST)
-2. Values stored in `donor_dynamic_fields` (EAV)
-3. If `is_searchable: true` → auto-included in `search_doc.dynamic`
-4. No deployment needed — works immediately
-
-### Run database migration
-```bash
-npx drizzle-kit generate  # Generate SQL migration from schema changes
-npx drizzle-kit migrate   # Apply to Neon DB
-npx tsx drizzle/seed.ts   # Re-run idempotent seed
-```
+Artefak `refs/crm_rn_app.jsx` dan `refs/crm_wa_extension.jsx` bukan acuan produk.
