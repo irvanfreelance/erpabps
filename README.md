@@ -1,3 +1,21 @@
+# ERP HRD ABPS
+
+Dokumen produk ada di `refs/prd.md`, skema target di `refs/erd.md`, dan guide teknis di `refs/trd.md`. Pohon folder pada TRD tidak diubah oleh dokumen peran.
+
+## Peran
+
+Hanya tiga label: `superadmin`, `superordinat` (atasan), `subordinat` (bawahan). Satu lapisan. Atasan hanya melihat bawahan langsung. Bawahan hanya melihat data sendiri. Superadmin melihat seluruh lokasi dan tim pada deployment ini.
+
+## Menu
+
+Daftar menu, submenu, dan matriks baca/buat/ubah/setujui ada di PRD bagian 5. Menyembunyikan menu di UI bukan pengaman. Handler dan SQL wajib menolak baris di luar ruang peran itu lewat `checkPermission` dan filter query.
+
+## Seed
+
+`npm run db:seed` menjalankan `drizzle/seed.ts` untuk tabel CRM yang sudah ada di migrasi. Roster HRD tidak ikut perintah itu. Batas field dan berkas terstrukturnya ada di `refs/seed-hrd.md`. Jangan menganggap seed karyawan sudah lengkap.
+
+## Menjalankan aplikasi
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

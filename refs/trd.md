@@ -1,12 +1,13 @@
 # Technical Requirements Document (TRD)
 
-## CRM Relawan Nusantara — v1.0
+## Guide boilerplate — v1.0, catatan harmonisasi ERP 6 November 2026
 
-**Project:** CRM RN
-**Client:** Yayasan Relawan Nusantara
-**Developer:** CNT (Creative Nusantara Technology)
-**Date:** 2026-10-22
-**References:** PRD CRM RN v2, ERD Single Tenant v2, UI Mockup Artifacts
+**Project:** ERP HRD Ayam Bakar Pucuk Singkong (repo masih boilerplate CRM)
+**Lembaga:** satu `org_profile`, bukan multi-tenant
+**Date:** 2026-10-22, catatan harmonisasi 2026-11-06
+**References:** `refs/prd.md` v3.0, `refs/erd.md` v3.0, UI dan kode yang ada di repo
+
+Catatan harmonisasi ini hanya mengganti istilah produk dan menambahkan sugesti di bagian 14. Pohon folder, pola route, pola SQL, dan contoh kode di bawah **tetap**. Contoh yang masih menulis `donors` menggambarkan handler yang ada sekarang, bukan rancangan folder baru.
 
 ---
 
@@ -58,6 +59,8 @@
 ## 2. Architecture
 
 ### 2.1 Project Structure
+
+Pohon berikut adalah guide yang berlaku. Nama route CRM adalah struktur kode saat ini. Jangan dipindah, diganti, atau dipecah menjadi paket baru dari dokumen ini. Penamaan modul HRD yang belum ada dicatat sebagai sugesti di bagian 14 dan tidak mengubah pohon ini.
 
 ```
 crm-rn/
@@ -349,13 +352,17 @@ export async function POST(req: NextRequest) {
 }
 ```
 
+Contoh di atas sengaja tidak diganti. Route HRD yang belum dibuat, bila dikerjakan nanti, menyalin bentuk yang sama: `guard` atau `getServerSession` + `checkPermission`, Zod, SQL di file route, `logAudit`, `NextResponse.json`. Tidak ada lapisan query baru.
+
 ---
 
 ## 3. Database Implementation
 
 ### 3.1 Schema Overview
 
-Seluruh DDL mengikuti `erd_single_v2.md` — 21 tabel:
+Tabel di bawah adalah skema yang **sudah ada di kode** boilerplate. DDL target absensi dan payroll ada di `refs/erd.md` v3.0. `org_profile`, `users`, `user_tokens`, `app_config`, dan `audit_logs` tetap. Tabel donatur tidak dijadikan kontrak domain HRD. Jangan memindahkan SQL ke folder baru.
+
+Seluruh DDL kode saat ini — 21 tabel inti ditambah `org_profile` dan `tag_definitions`:
 
 | # | Table | PK | Description |
 |---|---|---|---|
@@ -707,7 +714,9 @@ Status mapping in `vendor_profiles.status_mapping` (JSONB).
 - **Timeout:** 8 jam inaktif (NFR-14)
 - **Chrome Extension:** Per-user API token stored in `user_tokens` table, Chrome's `chrome.storage.local` (NOT localStorage)
 
-### 5.2 RBAC — 5 Roles
+### 5.2 RBAC
+
+Fungsi tetap `checkPermission(role, resource, action)` di `lib/auth/rbac.ts`. Kontrak ERP hanya mengenal `superadmin`, `superordinat`, dan `subordinat`. Label `admin`, `supervisor`, `data_analyst`, `tim_blast`, dan `read_only` tidak dipertahankan. Cuplikan di bawah ini adalah kode boilerplate yang masih ada di repo, bukan daftar peran produk. Migrasi label ada di `refs/erd.md` dan belum dijalankan. Matriks menu ada di PRD bagian 5. Isolasi data ada di query, bukan di sembunyinya menu.
 
 | Role | Dashboard | Donors | Import | Export | Assign | Config | Audit |
 |---|---|---|---|---|---|---|---|
@@ -716,6 +725,8 @@ Status mapping in `vendor_profiles.status_mapping` (JSONB).
 | `data_analyst` | ✓ | Read+Query | ✓ | ✓ | — | — | Read |
 | `tim_blast` | Worklist | Read+Note | — | — | — | — | — |
 | `read_only` | ✓ | Read | — | — | — | — | — |
+
+Tabel di atas adalah matriks CRM pada kode hari ini. Kontrak ERP menggantinya dengan tiga label dan matriks menu di PRD bagian 5. Jangan menambah peran keempat untuk klaim dinamis.
 
 Implementation:
 
@@ -1032,4 +1043,40 @@ Push to main → Vercel auto-deploy
 | PIC | Person-In-Charge — Tim Blast member assigned to donors |
 | Segment | Saved query that returns a set of donors matching conditions |
 | Search Index | Materialized JSONB document per donor for fast filtered queries |
-| Slug | URL-safe immutable identifier (e.g. `ramadan`, `qurban-2025`) |
+| Slug | URL-safe immutable identifier pada data CRM yang masih ada di kode |
+| ERP HRD | Produk target repo ini: absensi dan payroll IPA ABPS. Bukan modul stok |
+| Lembaga | Satu baris `org_profile`. Bukan tabel `tenants` |
+| Kelompok gaji | `pay_groups` di ERD target. Bukan role pengguna |
+| Sumber aturan | `sheet` atau `doc_erp_abs_stok`, disimpan per scope di ERD target |
+
+---
+
+## 14. Sugesti penyesuaian domain HRD
+
+Bagian ini bukan guide dan bukan redesign. Pohon di bagian 2.1 tetap. Tidak ada folder `modules/`, tidak ada ORM, dan SQL tidak dipindah ke `lib/db/queries`.
+
+Bila modul absensi dan payroll dikerjakan, route baru diletakkan di tempat yang sama dengan route yang sudah ada:
+
+| Sugesti path | Mengikuti pola yang sudah ada |
+|---|---|
+| `app/(dashboard)/employees/page.tsx` | halaman daftar seperti `donors/page.tsx` |
+| `app/api/employees/route.ts` | GET/POST, SQL di file ini |
+| `app/api/attendances/route.ts` | sama |
+| `app/api/payroll-runs/route.ts` | sama |
+| `app/api/settings/route.ts` | baca/tulis registry di `refs/erd.md`, bukan di `app_config` |
+| `lib/validators/employee.ts` | Zod, setara `lib/validators/donor.ts` |
+| `types/employee.ts` | tipe JSON, setara `types/donor.ts` |
+
+`app_config` dan `org_profile` tetap untuk identitas lembaga. Aturan telat, jam, bonus, dan payday tidak dimasukkan ke `app_config`.
+
+Sesi saat ini di `lib/auth/session.ts` memilih satu akun peran lama. Sugesti, tanpa mengubah pohon folder: baca sesi pengguna yang login dan tolak peran di luar tiga label kontrak. Jangan menambah tabel peran. Login PIN tidak menambah kolom kata sandi di `employees`. Seed karyawan tidak masuk `drizzle/seed.ts` selama tabel HRD belum ada di migrasi. Lihat `refs/seed-hrd.md`.
+
+`audit_logs.donor_id` tetap ada. Panggilan HRD mengisi `entityType` dan membiarkan `donorId` kosong.
+
+Kalkulator payroll, bila dibuat, adalah fungsi di dalam route atau satu file util tanpa framework baru. Angka bisnis dibaca dari registry. Run `approved` membaca snapshot.
+
+Chrome extension bagian 6 tidak dipakai ERP HRD. Bagian itu dibiarkan karena kodenya masih ada. Tidak dipindahkan dan tidak diubah menjadi modul stok.
+
+Impor boleh terus memakai `app/api/data-imports` dan `components/forms/import-wizard.tsx`. Jangan buat pipeline impor kedua.
+
+Tidak ada sugesti tabel gudang, pembelian, atau HPP. Itu di luar PRD bagian 17.
