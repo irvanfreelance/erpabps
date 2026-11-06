@@ -38,7 +38,7 @@ Mekanisme persisten lembaga dan akun **wajib** tetap bentuk kolomnya. Label pera
 | `user_tokens` | Token sesi dan API |
 | `audit_logs` | Jejak umum, immutable |
 
-`audit_logs.donor_id` adalah kolom warisan CRM. Domain HRD mengisi `entity_type` + `entity_id` dan membiarkan `donor_id` kosong. Kolom tidak dihapus di dokumen ini karena kode `logAudit` masih menuliskannya.
+`audit_logs` tidak punya kolom donatur. Jejak memakai `entity_type` dan `entity_id`.
 
 ### 2.1 DDL persisten
 
@@ -100,7 +100,6 @@ COMMENT ON TABLE org_profile IS 'Satu baris identitas lembaga. Seed hanya menimp
 CREATE TABLE audit_logs (
     id            BIGSERIAL    PRIMARY KEY,
     user_id       BIGINT       REFERENCES users(id),
-    donor_id      BIGINT       REFERENCES donors(id),
     action        VARCHAR(50)  NOT NULL,
     entity_type   VARCHAR(50)  NOT NULL,
     entity_id     BIGINT,
@@ -112,8 +111,7 @@ CREATE TABLE audit_logs (
     user_agent    TEXT,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE audit_logs IS 'Immutable. HRD tidak mengisi donor_id.';
-COMMENT ON COLUMN audit_logs.donor_id IS 'Warisan CRM. FK ke donors tetap ada di migrasi saat ini. Domain HRD mengosongkannya.';
+COMMENT ON TABLE audit_logs IS 'Immutable. Tidak ada kolom donatur.';
 ```
 
 Migrasi label, **belum dijalankan** dan belum ditulis ke `lib/db/migrations/`:
@@ -928,7 +926,7 @@ Yang dapat di-seed **tanpa** tabel baru, pada migrasi yang ada sekarang:
 - `org_profile` dan `app_config`, lewat `drizzle/seed.ts` yang sudah ada. PR ini tidak mengganti nilainya.
 - `users.role` secara tipe kolom muat tiga label baru, tetapi seed yang jalan masih menulis label CRM, dan `checkPermission` belum mengenal tiga label itu.
 
-Migrasi `0004_hrd_domain.sql` membuat tabel HRD dan menghapus tabel domain CRM. Data donatur tidak dikonversi. `drizzle/seed.ts` membaca `refs/seed-hrd.json`. Orang tanpa tanggal bergabung, jabatan, kelompok gaji, atau nomor tetap `draft` dengan kolom itu NULL. Enam orang yang field-nya lengkap berstatus `active`. Tidak ada baris `payroll_runs`. `in_payroll` hanya untuk `active`.
+Satu berkas `lib/db/migrations/0000_init.sql` membuat lembaga, akun, dan tabel HRD. Berkas itu tidak membuat tabel donatur. Jika database lama masih menyimpan tabel CRM, berkas yang sama menghapusnya dan tidak menghapus tabel HRD yang sudah ada. Data donatur tidak dikonversi. `drizzle/seed.ts` membaca `refs/seed-hrd.json`. Orang tanpa tanggal bergabung, jabatan, kelompok gaji, atau nomor tetap `draft` dengan kolom itu NULL. Enam orang yang field-nya lengkap berstatus `active`. Tidak ada baris `payroll_runs`. `in_payroll` hanya untuk `active`.
 
 Placeholder `superadmin` di JSON tidak punya email dan tidak punya password. Kolom `users.email` dan `users.password_hash` pada migrasi saat ini `NOT NULL`, jadi placeholder itu tidak di-insert.
 

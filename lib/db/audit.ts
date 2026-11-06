@@ -14,11 +14,10 @@ export async function logAudit(input: {
   const sql = getDb();
   await sql`
     INSERT INTO audit_logs (
-      user_id, donor_id, action, entity_type, entity_id, field_changed,
+      user_id, action, entity_type, entity_id, field_changed,
       value_before, value_after, source
     ) VALUES (
       ${input.userId ?? null},
-      ${input.donorId ?? null},
       ${input.action},
       ${input.entityType},
       ${input.entityId ?? null},

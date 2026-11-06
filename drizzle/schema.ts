@@ -104,7 +104,6 @@ export const employees = pgTable("employees", {
 export const auditLogs = pgTable("audit_logs", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   userId: bigint("user_id", { mode: "bigint" }),
-  donorId: bigint("donor_id", { mode: "bigint" }),
   action: varchar("action", { length: 50 }).notNull(),
   entityType: varchar("entity_type", { length: 50 }).notNull(),
   entityId: bigint("entity_id", { mode: "bigint" }),

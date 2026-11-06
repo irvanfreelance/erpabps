@@ -2,7 +2,7 @@
 
 Berkas data: `refs/seed-hrd.json`.
 
-`drizzle/seed.ts` membaca berkas JSON ini setelah migrasi `0004_hrd_domain.sql`. Perintahnya `npm run db:migrate` lalu `npm run db:seed`. Superadmin hanya dibuat bila `ADMIN_EMAIL`, `ADMIN_NAME`, dan `ADMIN_PASSWORD` ada di environment. Tidak ada password bawaan.
+`drizzle/seed.ts` membaca berkas JSON ini setelah migrasi `lib/db/migrations/0000_init.sql`. Perintahnya `npm run db:migrate` lalu `npm run db:seed`. Superadmin hanya dibuat bila `ADMIN_EMAIL`, `ADMIN_NAME`, dan `ADMIN_PASSWORD` ada di environment. Tidak ada password bawaan.
 
 Orang tanpa field wajib masuk sebagai `draft` dengan kolom yang kosong dibiarkan NULL. Enam orang yang lengkap berstatus `active` dan `in_payroll`. Tidak ada `payroll_runs`. Semua baris `validation_required`. Ini belum siap production.
 
