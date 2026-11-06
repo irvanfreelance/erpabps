@@ -716,7 +716,7 @@ Status mapping in `vendor_profiles.status_mapping` (JSONB).
 
 ### 5.2 RBAC
 
-Fungsi tetap `checkPermission(role, resource, action)` di `lib/auth/rbac.ts`. Kontrak ERP hanya mengenal `superadmin`, `superordinat`, dan `subordinat`. Label `admin`, `supervisor`, `data_analyst`, `tim_blast`, dan `read_only` tidak dipertahankan. Cuplikan di bawah ini adalah kode boilerplate yang masih ada di repo, bukan daftar peran produk. Migrasi label ada di `refs/erd.md` dan belum dijalankan. Matriks menu ada di PRD bagian 5. Isolasi data ada di query, bukan di sembunyinya menu.
+Fungsi tetap `checkPermission(role, resource, action)` di `lib/auth/rbac.ts`. Kontrak ERP hanya mengenal `superadmin`, `superordinat`, dan `subordinat`. Label `admin`, `supervisor`, `data_analyst`, `tim_blast`, dan `read_only` tidak dipertahankan. Kode `lib/auth/rbac.ts` memakai tiga label. Migrasi baseline ada di `lib/db/migrations/0000_init.sql`. Matriks menu ada di PRD bagian 5. Cuplikan di bawah ini adalah pola fungsi yang dipertahankan. Nama peran di contoh lama berikut bukan kontrak yang berlaku. Isolasi data ada di query, bukan di sembunyinya menu.
 
 | Role | Dashboard | Donors | Import | Export | Assign | Config | Audit |
 |---|---|---|---|---|---|---|---|
@@ -1071,7 +1071,7 @@ Bila modul absensi dan payroll dikerjakan, route baru diletakkan di tempat yang 
 
 Sesi saat ini di `lib/auth/session.ts` memilih satu akun peran lama. Sugesti, tanpa mengubah pohon folder: baca sesi pengguna yang login dan tolak peran di luar tiga label kontrak. Jangan menambah tabel peran. Login PIN tidak menambah kolom kata sandi di `employees`. Seed karyawan tidak masuk `drizzle/seed.ts` selama tabel HRD belum ada di migrasi. Lihat `refs/seed-hrd.md`.
 
-`audit_logs.donor_id` tetap ada. Panggilan HRD mengisi `entityType` dan membiarkan `donorId` kosong.
+`audit_logs` tidak lagi menyimpan `donor_id`. Panggilan HRD mengisi `entityType`.
 
 Kalkulator payroll, bila dibuat, adalah fungsi di dalam route atau satu file util tanpa framework baru. Angka bisnis dibaca dari registry. Run `approved` membaca snapshot.
 

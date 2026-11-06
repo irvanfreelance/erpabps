@@ -1,7 +1,7 @@
 {
   "format": "seed-dokumen-terstruktur",
-  "activatable": false,
-  "activatable_reason": "Migrasi kode hanya punya tabel CRM. Tabel employees, positions, pay_groups, dan locations belum ada. Berkas ini tidak dijalankan oleh drizzle/seed.ts.",
+  "activatable": true,
+  "activatable_reason": "drizzle/seed.ts membaca berkas ini setelah migrasi 0004. Baris draft tidak masuk payroll run. Superadmin butuh ADMIN_EMAIL dan ADMIN_PASSWORD.",
   "sources": [
     {
       "file": "01M5N2592A3Q66VH68S8SJQQVF_d4fc.xlsx",

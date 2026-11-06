@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-export const ROLES = ["admin", "supervisor", "data_analyst", "tim_blast", "read_only"] as const;
+export const ROLES = ["superadmin", "superordinat", "subordinat"] as const;
 
 export const createUserSchema = z.object({
   nama: z.string().min(2).max(200),
   email: z.string().email(),
   password: z.string().min(8).max(100),
-  role: z.enum(ROLES).default("tim_blast"),
+  role: z.enum(ROLES).default("subordinat"),
   isActive: z.boolean().optional().default(true),
 });
 

@@ -1,4 +1,4 @@
-export type Role = "admin" | "supervisor" | "data_analyst" | "tim_blast" | "read_only";
+export type Role = "superadmin" | "superordinat" | "subordinat";
 
 export type SessionUser = {
   id: string;

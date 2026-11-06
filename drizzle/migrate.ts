@@ -3,6 +3,23 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { neon } from "@neondatabase/serverless";
 
+type Sql = {
+  query: (query: string, params?: unknown[]) => Promise<unknown>;
+};
+
+async function openSql(url: string): Promise<Sql> {
+  const neonHost = url.includes("neon.tech") || url.startsWith("https://");
+  if (neonHost) return neon(url) as unknown as Sql;
+  const { default: pg } = await import("pg");
+  const pool = new pg.Pool({ connectionString: url });
+  return {
+    query: async (text, params) => {
+      await pool.query(text, params);
+      return [];
+    },
+  };
+}
+
 config({ path: ".env.local" });
 config();
 
@@ -53,7 +70,7 @@ function splitSql(sql: string): string[] {
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is required");
-  const sql = neon(url);
+  const sql = await openSql(url);
   const dir = join(process.cwd(), "lib/db/migrations");
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".sql"))

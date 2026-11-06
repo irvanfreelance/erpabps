@@ -38,7 +38,7 @@ Mekanisme persisten lembaga dan akun **wajib** tetap bentuk kolomnya. Label pera
 | `user_tokens` | Token sesi dan API |
 | `audit_logs` | Jejak umum, immutable |
 
-`audit_logs.donor_id` adalah kolom warisan CRM. Domain HRD mengisi `entity_type` + `entity_id` dan membiarkan `donor_id` kosong. Kolom tidak dihapus di dokumen ini karena kode `logAudit` masih menuliskannya.
+`audit_logs` tidak punya kolom donatur. Jejak memakai `entity_type` dan `entity_id`.
 
 ### 2.1 DDL persisten
 
@@ -100,7 +100,6 @@ COMMENT ON TABLE org_profile IS 'Satu baris identitas lembaga. Seed hanya menimp
 CREATE TABLE audit_logs (
     id            BIGSERIAL    PRIMARY KEY,
     user_id       BIGINT       REFERENCES users(id),
-    donor_id      BIGINT       REFERENCES donors(id),
     action        VARCHAR(50)  NOT NULL,
     entity_type   VARCHAR(50)  NOT NULL,
     entity_id     BIGINT,
@@ -112,8 +111,7 @@ CREATE TABLE audit_logs (
     user_agent    TEXT,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-COMMENT ON TABLE audit_logs IS 'Immutable. HRD tidak mengisi donor_id.';
-COMMENT ON COLUMN audit_logs.donor_id IS 'Warisan CRM. FK ke donors tetap ada di migrasi saat ini. Domain HRD mengosongkannya.';
+COMMENT ON TABLE audit_logs IS 'Immutable. Tidak ada kolom donatur.';
 ```
 
 Migrasi label, **belum dijalankan** dan belum ditulis ke `lib/db/migrations/`:
@@ -264,10 +262,10 @@ CREATE TABLE employees (
     id                  BIGSERIAL PRIMARY KEY,
     user_id             BIGINT       UNIQUE REFERENCES users(id),
     supervisor_employee_id BIGINT    REFERENCES employees(id),
-    position_id         BIGINT       NOT NULL REFERENCES positions(id),
+    position_id         BIGINT       REFERENCES positions(id),
     location_id         BIGINT       REFERENCES locations(id),
-    pay_group_id        BIGINT       NOT NULL REFERENCES pay_groups(id),
-    employee_number     VARCHAR(50)  NOT NULL UNIQUE,
+    pay_group_id        BIGINT       REFERENCES pay_groups(id),
+    employee_number     VARCHAR(50)  UNIQUE,
     full_name           VARCHAR(255) NOT NULL,
     email               VARCHAR(255),
     phone               VARCHAR(20),
@@ -275,7 +273,11 @@ CREATE TABLE employees (
     npwp                VARCHAR(30),
     gender              VARCHAR(10),
     birth_date          DATE,
-    join_date           DATE         NOT NULL,
+    join_date           DATE,
+    record_status       VARCHAR(20)  NOT NULL DEFAULT 'draft',
+      -- draft = roster belum lengkap; active = field wajib terisi
+    source_row          INT          UNIQUE,
+    source_note         TEXT,
     end_date            DATE,
     employment_status   VARCHAR(30)  NOT NULL DEFAULT 'contract',
       -- permanent | contract | training | freelance | part_time | ended
@@ -285,7 +287,7 @@ CREATE TABLE employees (
     hourly_rate         NUMERIC(12,2),
     daily_rate          NUMERIC(12,2),
     has_login           BOOLEAN      NOT NULL DEFAULT FALSE,
-    in_payroll          BOOLEAN      NOT NULL DEFAULT TRUE,
+    in_payroll          BOOLEAN      NOT NULL DEFAULT FALSE,
     is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
@@ -293,10 +295,24 @@ CREATE TABLE employees (
     CONSTRAINT ck_employee_login CHECK (has_login = FALSE OR user_id IS NOT NULL),
     CONSTRAINT ck_supervisor_not_self CHECK (
         supervisor_employee_id IS NULL OR supervisor_employee_id <> id
-    )
+    ),
+    CONSTRAINT ck_employee_active CHECK (
+        record_status <> 'active'
+        OR (
+            join_date IS NOT NULL
+            AND position_id IS NOT NULL
+            AND pay_group_id IS NOT NULL
+            AND employee_number IS NOT NULL
+        )
+    ),
+    CONSTRAINT ck_payroll_only_active CHECK (in_payroll = FALSE OR record_status = 'active')
 );
 COMMENT ON COLUMN employees.supervisor_employee_id IS
   'Satu atasan langsung. NULL diizinkan. Bukan hierarki rekursif.';
+COMMENT ON COLUMN employees.join_date IS
+  'NULL bila roster tidak punya tanggal bergabung. Jangan diisi tanggal palsu. record_status tetap draft.';
+COMMENT ON COLUMN employees.record_status IS
+  'draft atau active. active hanya jika nomor, jabatan, kelompok gaji, dan tanggal bergabung ada.';
 CREATE INDEX idx_emp_supervisor ON employees(supervisor_employee_id);
 COMMENT ON COLUMN employees.nik IS 'Kolom operasional. Dilarang diisi data asli di seed dan di dokumen.';
 COMMENT ON COLUMN employees.hourly_rate IS 'Tarif crew dapur per orang. Bukan tarif global.';
@@ -910,7 +926,7 @@ Yang dapat di-seed **tanpa** tabel baru, pada migrasi yang ada sekarang:
 - `org_profile` dan `app_config`, lewat `drizzle/seed.ts` yang sudah ada. PR ini tidak mengganti nilainya.
 - `users.role` secara tipe kolom muat tiga label baru, tetapi seed yang jalan masih menulis label CRM, dan `checkPermission` belum mengenal tiga label itu.
 
-Yang **tidak** dapat di-seed tanpa migrasi HRD: `locations`, `positions`, `pay_groups`, `employees`, komponen, dan atasan. Karena itu tidak ada perubahan `drizzle/seed.ts` untuk karyawan.
+Satu berkas `lib/db/migrations/0000_init.sql` membuat lembaga, akun, dan tabel HRD. Berkas itu tidak membuat tabel donatur. Jika database lama masih menyimpan tabel CRM, berkas yang sama menghapusnya dan tidak menghapus tabel HRD yang sudah ada. Data donatur tidak dikonversi. `drizzle/seed.ts` membaca `refs/seed-hrd.json`. Orang tanpa tanggal bergabung, jabatan, kelompok gaji, atau nomor tetap `draft` dengan kolom itu NULL. Enam orang yang field-nya lengkap berstatus `active`. Tidak ada baris `payroll_runs`. `in_payroll` hanya untuk `active`.
 
 Placeholder `superadmin` di JSON tidak punya email dan tidak punya password. Kolom `users.email` dan `users.password_hash` pada migrasi saat ini `NOT NULL`, jadi placeholder itu tidak di-insert.
 
