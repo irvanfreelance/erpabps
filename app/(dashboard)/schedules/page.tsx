@@ -1,44 +1,44 @@
 import { GET as list } from "@/app/api/shift-assignments/route";
-import { GET as listEmp } from "@/app/api/employees/route";
-import { GET as listTpl } from "@/app/api/shift-templates/route";
-import { SimpleCreate } from "@/components/hrd/simple-create";
-import { DataTable } from "@/components/data-table/data-table";
+import { GET as listLoc } from "@/app/api/locations/route";
+import { ScheduleBoard } from "@/components/hrd/schedule-board";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
 
 export const metadata = { title: "Kalender jadwal — ABPS" };
 
-export default async function Page() {
-  const [{ rows }, emp, tpl] = await Promise.all([
-    fromRoute<{ rows: Record<string, unknown>[] }>(await list(internalRequest("/api/shift-assignments"))),
-    fromRoute<{ rows: { id: string; full_name: string }[] }>(await listEmp()),
-    fromRoute<{ rows: { id: string; code: string }[] }>(await listTpl()),
-  ]);
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; locationId?: string }>;
+}) {
+  const sp = await searchParams;
+  const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : "2026-11";
+  const locationId = sp.locationId ?? "";
+  const q = new URLSearchParams({ month });
+  if (locationId) q.set("locationId", locationId);
+  const data = await fromRoute<{
+    employees: never[];
+    rows: never[];
+    templates: never[];
+    canWrite: boolean;
+  }>(await list(internalRequest(`/api/shift-assignments?${q.toString()}`)));
+  let loc = { rows: [] as { id: string; name: string }[] };
+  try {
+    loc = await fromRoute<{ rows: { id: string; name: string }[] }>(await listLoc());
+  } catch {
+    loc = { rows: [] };
+  }
+  const { employees, rows, templates, canWrite } = data;
   return (
     <div>
-      <h1 className="mb-3 mt-0 text-[20px] font-bold text-[var(--primary)]">Kalender jadwal</h1>
-      <p className="mb-2 text-[12px] text-[#888]">
-        Karyawan: {emp.rows.map((e) => `${e.id}:${e.full_name}`).join(" · ")} · Shift:{" "}
-        {tpl.rows.map((t) => `${t.id}:${t.code}`).join(" · ")}
-      </p>
-      <SimpleCreate
-        action="/api/shift-assignments"
-        label="Pasang shift"
-        fields={[
-          { name: "employeeId", label: "ID karyawan" },
-          { name: "shiftTemplateId", label: "ID template" },
-          { name: "workDate", label: "Tanggal", type: "date" },
-          { name: "stationCode", label: "Station" },
-        ]}
-      />
-      <DataTable
-        data={rows as { id: string }[]}
-        columns={[
-          { key: "work_date", label: "Tanggal" },
-          { key: "full_name", label: "Nama" },
-          { key: "shift_code", label: "Shift" },
-          { key: "station_code", label: "Station" },
-          { key: "shift_kind", label: "Jenis" },
-        ]}
+      <h1 className="mb-3 mt-0 text-[20px] font-bold text-[var(--primary)]">Jadwal crew outlet</h1>
+      <ScheduleBoard
+        month={month}
+        locationId={locationId}
+        locations={loc.rows}
+        employees={employees as never}
+        rows={rows as never}
+        templates={templates as never}
+        canWrite={canWrite}
       />
     </div>
   );

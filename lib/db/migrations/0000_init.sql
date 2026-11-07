@@ -331,6 +331,9 @@ CREATE TABLE IF NOT EXISTS shift_assignments (
     CONSTRAINT uq_shift_day UNIQUE (employee_id, work_date)
 );
 
+ALTER TABLE shift_assignments ADD COLUMN IF NOT EXISTS start_time TIME;
+ALTER TABLE shift_assignments ADD COLUMN IF NOT EXISTS end_time TIME;
+
 CREATE TABLE IF NOT EXISTS shift_swap_requests (
     id                      BIGSERIAL PRIMARY KEY,
     requester_id            BIGINT NOT NULL REFERENCES employees(id),

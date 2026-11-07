@@ -224,6 +224,8 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
     ["MID", "Middle", "regular", "09:30", "19:30", "inherit"],
     ["S3", "Shift 3", "regular", "12:30", "21:30", "inherit"],
     ["BACKUP", "Shift backup", "backup", "00:00", "00:00", "none"],
+    ["OFF", "Libur", "regular", "00:00", "00:00", "none"],
+    ["CUSTOM", "Jam khusus", "regular", "08:00", "18:00", "inherit"],
   ];
   for (const [code, name, kind, start, end, late] of shifts) {
     await sql.query(
@@ -322,6 +324,7 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
   }
   await seedDemoProfiles(sql);
   console.log(`Roster: active=${active} draft=${draft} payroll_runs=0`);
+  await seedOutletNovember(sql, actorId);
 
   if (!actorId) {
     console.log("Nilai pengaturan dilewati karena superadmin belum ada.");
@@ -565,6 +568,137 @@ async function seedDemoProfiles(sql: Sql) {
          SELECT id FROM employees WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 4
        )`,
   );
+}
+
+function matchCrewAlias(fullName: string, alias: string) {
+  const n = fullName.toLowerCase();
+  if (alias === "rafli") return n.includes("rafly") || n.includes("rafli");
+  if (alias === "reyhan") return n.includes("reyhaan") || n.includes("reyhan");
+  return n.includes(alias);
+}
+
+async function seedOutletNovember(sql: Sql, actorId: string | null) {
+  const existingUser = await sql.query(
+    `SELECT id FROM users WHERE deleted_at IS NULL ORDER BY id LIMIT 1`,
+  );
+  let actor = actorId ?? (existingUser[0] ? String(existingUser[0].id) : null);
+  if (!actor) {
+    const created = await sql.query(
+      `INSERT INTO users (nama, email, password_hash, role, is_active)
+       VALUES ('Pencatat jadwal', 'seed-schedule@local', '!', 'superordinat', FALSE)
+       ON CONFLICT (email) DO UPDATE SET deleted_at = NULL
+       RETURNING id`,
+    );
+    actor = created[0] ? String(created[0].id) : null;
+  }
+  if (!actor) {
+    console.log("Jadwal November dilewati karena assigned_by tidak tersedia.");
+    return;
+  }
+  const people = await sql.query(
+    `SELECT e.id, e.full_name FROM employees e WHERE e.deleted_at IS NULL`,
+  );
+  const outlet = await sql.query(`SELECT id FROM pay_groups WHERE code = 'MONTHLY_OUTLET' LIMIT 1`);
+  const outletId = outlet[0] ? String(outlet[0].id) : null;
+  const find = (alias: string) =>
+    people.find((p) => matchCrewAlias(String(p.full_name), alias));
+  const tpls = await sql.query(`SELECT id, code, shift_kind FROM shift_templates WHERE deleted_at IS NULL`);
+  const byCode = new Map(tpls.map((t) => [String(t.code), t]));
+  const parse = (token: string) => {
+    const v = token.trim().toLowerCase();
+    if (v === "s1") return { code: "P1", status: "work", start: null as string | null, end: null as string | null, notes: null as string | null };
+    if (v === "s2") return { code: "P2", status: "work", start: null, end: null, notes: null };
+    if (v === "off") return { code: "OFF", status: "off", start: null, end: null, notes: null };
+    if (v === "req") return { code: "OFF", status: "off", start: null, end: null, notes: "permintaan" };
+    if (v === "izin") return { code: "OFF", status: "off_izin", start: null, end: null, notes: null };
+    if (v.startsWith("jam:")) {
+      const [start, end] = v.slice(4).split("-");
+      return { code: "CUSTOM", status: "work", start, end, notes: null };
+    }
+    return null;
+  };
+  const cells: [string, number, string][] = [
+    ["dahlia", 2, "off"], ["dahlia", 8, "off"], ["dahlia", 15, "off"],
+    ["nasir", 2, "s1"], ["nasir", 3, "req"], ["nasir", 4, "s2"], ["nasir", 5, "s2"], ["nasir", 6, "s2"], ["nasir", 7, "s2"],
+    ["nasir", 8, "jam:08:00-18:00"], ["nasir", 9, "off"], ["nasir", 10, "s2"], ["nasir", 11, "s1"], ["nasir", 12, "s1"],
+    ["nasir", 13, "s1"], ["nasir", 14, "s1"], ["nasir", 15, "s1"], ["nasir", 16, "req"],
+    ["vanesa", 2, "s1"], ["vanesa", 3, "req"], ["vanesa", 4, "s1"], ["vanesa", 5, "s1"], ["vanesa", 6, "s1"], ["vanesa", 7, "s1"],
+    ["vanesa", 8, "s1"], ["vanesa", 9, "s1"], ["vanesa", 10, "off"], ["vanesa", 11, "s2"], ["vanesa", 12, "s2"], ["vanesa", 13, "s2"],
+    ["vanesa", 14, "s2"], ["vanesa", 15, "s2"], ["vanesa", 16, "req"],
+    ["airi", 2, "s2"], ["airi", 3, "s1"], ["airi", 4, "req"], ["airi", 5, "s2"], ["airi", 6, "s2"], ["airi", 7, "s2"], ["airi", 8, "s2"],
+    ["airi", 9, "s2"], ["airi", 10, "s2"], ["airi", 11, "off"], ["airi", 12, "s1"], ["airi", 13, "s1"], ["airi", 14, "s1"], ["airi", 15, "s1"],
+    ["refa", 2, "s2"], ["refa", 3, "s2"], ["refa", 4, "s2"], ["refa", 5, "s2"], ["refa", 6, "off"], ["refa", 7, "s2"], ["refa", 8, "s2"],
+    ["refa", 9, "s2"], ["refa", 10, "s1"], ["refa", 11, "s2"], ["refa", 12, "s2"], ["refa", 13, "s2"], ["refa", 14, "req"], ["refa", 15, "s2"],
+    ["iman", 2, "s2"], ["iman", 3, "s2"], ["iman", 4, "s2"], ["iman", 5, "req"], ["iman", 6, "s2"], ["iman", 7, "s2"], ["iman", 8, "s2"],
+    ["iman", 9, "s2"], ["iman", 10, "s2"], ["iman", 11, "s1"], ["iman", 12, "off"], ["iman", 13, "s2"], ["iman", 14, "s2"], ["iman", 15, "s2"],
+    ["rafli", 2, "off"], ["rafli", 3, "s2"], ["rafli", 4, "s1"], ["rafli", 5, "s1"], ["rafli", 6, "s1"], ["rafli", 7, "s1"], ["rafli", 8, "s1"],
+    ["rafli", 9, "off"], ["rafli", 10, "s2"], ["rafli", 11, "s2"], ["rafli", 12, "s2"], ["rafli", 13, "s2"], ["rafli", 14, "s2"], ["rafli", 15, "s2"],
+    ["rafli", 20, "req"],
+    ["iqbal", 2, "s2"], ["iqbal", 3, "s2"], ["iqbal", 4, "req"], ["iqbal", 5, "s2"], ["iqbal", 6, "s2"], ["iqbal", 7, "s2"], ["iqbal", 8, "s2"],
+    ["iqbal", 9, "s1"], ["iqbal", 10, "off"], ["iqbal", 11, "s2"], ["iqbal", 12, "s1"], ["iqbal", 13, "s1"], ["iqbal", 14, "s1"], ["iqbal", 15, "s1"],
+    ["iqbal", 22, "off"],
+    ["reyhan", 2, "s1"], ["reyhan", 3, "s1"], ["reyhan", 4, "s1"], ["reyhan", 5, "req"], ["reyhan", 6, "s2"], ["reyhan", 7, "s2"], ["reyhan", 8, "s2"],
+    ["reyhan", 9, "s2"], ["reyhan", 10, "s1"], ["reyhan", 11, "s1"], ["reyhan", 12, "off"], ["reyhan", 13, "s2"], ["reyhan", 14, "s2"], ["reyhan", 15, "s2"],
+    ["yuli", 2, "s1"], ["yuli", 3, "s1"], ["yuli", 4, "s1"], ["yuli", 5, "s1"], ["yuli", 6, "s1"], ["yuli", 7, "req"], ["yuli", 8, "s2"],
+    ["yuli", 9, "s2"], ["yuli", 10, "s2"], ["yuli", 11, "s2"], ["yuli", 12, "s2"], ["yuli", 13, "s2"], ["yuli", 14, "off"], ["yuli", 15, "s2"],
+    ["herni", 2, "off"], ["herni", 3, "izin"], ["herni", 4, "s2"], ["herni", 5, "s2"], ["herni", 6, "s2"], ["herni", 7, "s2"], ["herni", 8, "s2"],
+    ["herni", 9, "s2"], ["herni", 10, "s2"], ["herni", 11, "off"], ["herni", 12, "s2"], ["herni", 13, "s2"], ["herni", 14, "s2"], ["herni", 15, "s1"],
+    ["hesti", 2, "s2"], ["hesti", 3, "s2"], ["hesti", 4, "s2"], ["hesti", 5, "s2"], ["hesti", 6, "req"], ["hesti", 7, "s1"], ["hesti", 8, "s1"],
+    ["hesti", 9, "s1"], ["hesti", 10, "s1"], ["hesti", 11, "s1"], ["hesti", 12, "s1"], ["hesti", 13, "s1"], ["hesti", 14, "s1"], ["hesti", 15, "off"],
+    ["hesti", 16, "s2"],
+  ];
+  const aliases = [...new Set(cells.map((c) => c[0]))];
+  for (const alias of aliases) {
+    const emp = find(alias);
+    if (emp && outletId) {
+      await sql.query(`UPDATE employees SET pay_group_id = $2::bigint, updated_at = now() WHERE id = $1::bigint`, [
+        String(emp.id),
+        outletId,
+      ]);
+    }
+  }
+  let saved = 0;
+  const missing = new Set<string>();
+  for (const [alias, day, token] of cells) {
+    const emp = find(alias);
+    if (!emp) {
+      missing.add(alias);
+      continue;
+    }
+    const parsed = parse(token);
+    if (!parsed) continue;
+    const tpl = byCode.get(parsed.code);
+    if (!tpl) continue;
+    const date = `2026-11-${String(day).padStart(2, "0")}`;
+    await sql.query(
+      `INSERT INTO shift_assignments (
+         employee_id, shift_template_id, work_date, day_status, is_backup,
+         start_time, end_time, assigned_by, notes
+       ) VALUES ($1::bigint, $2::bigint, $3::date, $4, $5, $6::time, $7::time, $8::bigint, $9)
+       ON CONFLICT (employee_id, work_date) DO UPDATE SET
+         shift_template_id = EXCLUDED.shift_template_id,
+         day_status = EXCLUDED.day_status,
+         is_backup = EXCLUDED.is_backup,
+         start_time = EXCLUDED.start_time,
+         end_time = EXCLUDED.end_time,
+         notes = EXCLUDED.notes,
+         updated_at = now()`,
+      [
+        String(emp.id),
+        String(tpl.id),
+        date,
+        parsed.status,
+        String(tpl.shift_kind) === "backup",
+        parsed.start,
+        parsed.end,
+        actor,
+        parsed.notes,
+      ],
+    );
+    saved += 1;
+  }
+  if (missing.size) console.log(`Jadwal November: nama tidak ketemu ${[...missing].join(", ")}`);
+  console.log(`Jadwal November 2026: ${saved} sel (tanpa Hitung SO)`);
 }
 
 async function main() {
