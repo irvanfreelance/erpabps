@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { guard, zodError } from "@/lib/api/guard";
+import { guard, isDuplicateEmailError, zodError } from "@/lib/api/guard";
 import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/db/audit";
 import { allocateEmployeeNumber } from "@/lib/hrd/employee-number";
-import { visibleEmployeeIds } from "@/lib/hrd/scope";
+import { ensureEmployeeUser } from "@/lib/hrd/employee-user";
+import { canAccessEmployee, visibleEmployeeIds } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { employeeWriteSchema } from "@/lib/validators/employee";
+import { employeePatchSchema } from "@/lib/validators/employee";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guard("employees", "read");
@@ -14,13 +15,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const sql = getDb();
   const ids = await visibleEmployeeIds(sql, g.session!.user);
   const isAdmin = g.session!.user.role === "superadmin";
+  const ownRow = g.session!.user.employeeId === id;
   const rows = await sql`
     SELECT e.id, e.full_name, e.employee_number, e.record_status, e.in_payroll, e.join_date,
            e.gender, e.marital_status, e.employment_status, e.birth_date, e.address, e.hourly_rate, e.daily_rate,
            e.position_id, e.rank_id, e.location_id, e.pay_group_id, e.supervisor_employee_id,
            e.validation_required,
-           CASE WHEN ${isAdmin} THEN e.email ELSE NULL END AS email,
-           CASE WHEN ${isAdmin} THEN e.phone ELSE NULL END AS phone,
+           CASE WHEN ${isAdmin || ownRow || g.session!.user.role === "superordinat"} THEN e.email ELSE NULL END AS email,
+           CASE WHEN ${isAdmin || ownRow} THEN e.phone ELSE NULL END AS phone,
            CASE WHEN ${isAdmin} THEN e.nik ELSE NULL END AS nik,
            CASE WHEN ${isAdmin} THEN e.npwp ELSE NULL END AS npwp,
            CASE WHEN ${isAdmin} THEN e.bpjs_kesehatan_id ELSE NULL END AS bpjs_kesehatan_id,
@@ -76,13 +78,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const g = await guard("employees", "update");
   if (g.error) return g.error;
   const { id } = await ctx.params;
-  const parsed = employeeWriteSchema.partial().safeParse(await req.json());
+  const parsed = employeePatchSchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);
   const d = parsed.data;
   if (d.supervisorEmployeeId && d.supervisorEmployeeId === id) {
     return NextResponse.json({ error: "Atasan tidak boleh diri sendiri" }, { status: 400 });
   }
   const sql = getDb();
+  if (!(await canAccessEmployee(sql, g.session!.user, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const current = await sql`
     SELECT employee_number, position_id, pay_group_id, join_date, record_status
     FROM employees WHERE id = ${id}::bigint AND deleted_at IS NULL
@@ -95,13 +100,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     join_date: string | null;
     record_status: string;
   };
-  const nextStatus = d.recordStatus ?? cur.record_status;
-  const nextJoin = d.joinDate !== undefined ? d.joinDate : cur.join_date;
+  const own = g.session!.user.role === "subordinat";
+  const nextStatus = own ? cur.record_status : (d.recordStatus ?? cur.record_status);
+  const nextJoin = own ? cur.join_date : d.joinDate !== undefined ? d.joinDate : cur.join_date;
   let nextNum = cur.employee_number;
-  if (d.employeeNumber) nextNum = d.employeeNumber;
+  if (!own && d.employeeNumber) nextNum = d.employeeNumber;
   if (!nextNum) nextNum = await allocateEmployeeNumber(sql, null);
-  const nextPos = d.positionId !== undefined ? d.positionId : cur.position_id;
-  const nextGroup = d.payGroupId !== undefined ? d.payGroupId : cur.pay_group_id;
+  const nextPos = own ? cur.position_id : d.positionId !== undefined ? d.positionId : cur.position_id;
+  const nextGroup = own ? cur.pay_group_id : d.payGroupId !== undefined ? d.payGroupId : cur.pay_group_id;
   if (nextStatus === "active" && !(nextJoin && nextNum && nextPos && nextGroup)) {
     return NextResponse.json(
       { error: "Karyawan aktif wajib jabatan, kelompok gaji, dan tanggal bergabung" },
@@ -110,8 +116,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
   const admin = g.session!.user.role === "superadmin";
   const nik = admin ? (d.nik === "" ? null : d.nik ?? undefined) : undefined;
-  const touchSupervisor = Object.prototype.hasOwnProperty.call(d, "supervisorEmployeeId");
+  const touchSupervisor = !own && Object.prototype.hasOwnProperty.call(d, "supervisorEmployeeId");
   const supervisorVal = d.supervisorEmployeeId || null;
+  const touchOrg = !own;
+  try {
   const rows = await sql`
     UPDATE employees SET
       full_name = COALESCE(${d.fullName ?? null}, full_name),
@@ -121,18 +129,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       employment_status = COALESCE(${d.employmentStatus ?? null}, employment_status),
       birth_date = COALESCE(${d.birthDate || null}::date, birth_date),
       address = CASE WHEN ${d.address !== undefined} THEN ${d.address || null} ELSE address END,
-      join_date = COALESCE(${d.joinDate || null}::date, join_date),
-      location_id = COALESCE(${d.locationId || null}::bigint, location_id),
-      position_id = COALESCE(${d.positionId || null}::bigint, position_id),
-      rank_id = COALESCE(${d.rankId || null}::bigint, rank_id),
-      pay_group_id = COALESCE(${d.payGroupId || null}::bigint, pay_group_id),
+      join_date = CASE WHEN ${touchOrg} THEN COALESCE(${d.joinDate || null}::date, join_date) ELSE join_date END,
+      location_id = CASE WHEN ${touchOrg} THEN COALESCE(${d.locationId || null}::bigint, location_id) ELSE location_id END,
+      position_id = CASE WHEN ${touchOrg} THEN COALESCE(${d.positionId || null}::bigint, position_id) ELSE position_id END,
+      rank_id = CASE WHEN ${touchOrg} THEN COALESCE(${d.rankId || null}::bigint, rank_id) ELSE rank_id END,
+      pay_group_id = CASE WHEN ${touchOrg} THEN COALESCE(${d.payGroupId || null}::bigint, pay_group_id) ELSE pay_group_id END,
       supervisor_employee_id = CASE WHEN ${touchSupervisor} THEN ${supervisorVal}::bigint ELSE supervisor_employee_id END,
       record_status = ${nextStatus},
       in_payroll = CASE WHEN ${nextStatus} = 'active' THEN COALESCE(${d.inPayroll ?? null}, in_payroll) ELSE FALSE END,
-      hourly_rate = COALESCE(${d.hourlyRate ?? null}, hourly_rate),
-      daily_rate = COALESCE(${d.dailyRate ?? null}, daily_rate),
-      email = CASE WHEN ${admin} THEN COALESCE(${d.email || null}, email) ELSE email END,
-      phone = CASE WHEN ${admin} THEN COALESCE(${d.phone ?? null}, phone) ELSE phone END,
+      hourly_rate = CASE WHEN ${touchOrg} THEN COALESCE(${d.hourlyRate ?? null}, hourly_rate) ELSE hourly_rate END,
+      daily_rate = CASE WHEN ${touchOrg} THEN COALESCE(${d.dailyRate ?? null}, daily_rate) ELSE daily_rate END,
+      email = CASE WHEN ${d.email !== undefined} THEN ${d.email} ELSE email END,
+      phone = CASE WHEN ${admin || own} THEN COALESCE(${d.phone ?? null}, phone) ELSE phone END,
       nik = CASE WHEN ${admin} AND ${nik !== undefined} THEN ${nik ?? null} ELSE nik END,
       npwp = CASE WHEN ${admin} THEN COALESCE(${d.npwp ?? null}, npwp) ELSE npwp END,
       bpjs_kesehatan_id = CASE WHEN ${admin} THEN COALESCE(${d.bpjsKesehatanId ?? null}, bpjs_kesehatan_id) ELSE bpjs_kesehatan_id END,
@@ -145,6 +153,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     WHERE id = ${id}::bigint AND deleted_at IS NULL
     RETURNING id, full_name, record_status, in_payroll
   `;
+  await ensureEmployeeUser(sql, id);
   await logAudit({
     userId: g.session!.user.id,
     action: "update",
@@ -153,11 +162,20 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     valueAfter: { fullName: d.fullName, recordStatus: nextStatus },
   });
   return NextResponse.json(jsonSafe(rows[0]));
+  } catch (err) {
+    if (isDuplicateEmailError(err)) {
+      return NextResponse.json({ error: "Email sudah dipakai" }, { status: 400 });
+    }
+    throw err;
+  }
 }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guard("employees", "update");
   if (g.error) return g.error;
+  if (g.session!.user.role !== "superadmin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const { id } = await ctx.params;
   const sql = getDb();
   await sql`UPDATE employees SET deleted_at = now(), is_active = FALSE, in_payroll = FALSE, updated_at = now() WHERE id = ${id}::bigint`;

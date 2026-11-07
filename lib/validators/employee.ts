@@ -28,8 +28,7 @@ const optionalEnum = <T extends readonly [string, ...string[]]>(values: T, label
     z.enum(values, { error: `Pilih ${label} yang valid` }).nullable().optional(),
   );
 
-export const employeeWriteSchema = z
-  .object({
+const employeeFields = z.object({
     fullName: requiredName("Nama lengkap"),
     employeeNumber: z.preprocess(
       blankToNull,
@@ -65,8 +64,11 @@ export const employeeWriteSchema = z
       return Number.isFinite(num) ? num : n;
     }, z.number().nonnegative("Tarif tidak boleh negatif").nullable().optional()),
     email: z.preprocess(
-      blankToNull,
-      z.email("Format email tidak valid").max(255, "Email terlalu panjang").nullable().optional(),
+      (v) => {
+        const s = blankToNull(v);
+        return typeof s === "string" ? s.trim().toLowerCase() : s;
+      },
+      z.email("Format email tidak valid").max(255, "Email terlalu panjang"),
     ),
     phone: z.preprocess(
       (v) => {
@@ -108,8 +110,12 @@ export const employeeWriteSchema = z
       z.string().regex(RE.bankAccount, "Nomor rekening 8–20 digit").nullable().optional(),
     ),
     bankAccountName: optionalName("Atas nama rekening"),
-  })
-  .superRefine((d, ctx) => {
+  });
+
+function refineEmployeeWrite(
+  d: z.infer<typeof employeeFields>,
+  ctx: z.RefinementCtx,
+) {
     const bankBits = [d.bankName, d.bankAccountNumber, d.bankAccountName].filter(Boolean).length;
     if (bankBits > 0 && bankBits < 3) {
       ctx.addIssue({
@@ -135,7 +141,12 @@ export const employeeWriteSchema = z
         path: ["recordStatus"],
       });
     }
-  });
+}
+
+export const employeeWriteSchema = employeeFields.superRefine(refineEmployeeWrite);
+export const employeePatchSchema = employeeFields.partial().superRefine((d, ctx) => {
+  refineEmployeeWrite(d as z.infer<typeof employeeFields>, ctx);
+});
 
 export const educationSchema = z
   .object({

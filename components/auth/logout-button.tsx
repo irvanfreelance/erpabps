@@ -1,7 +1,7 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { markSignedOut } from "@/lib/auth/ui-gate";
+import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils/cn";
 
 export function LogoutButton({
@@ -14,8 +14,7 @@ export function LogoutButton({
   className?: string;
 }) {
   function logout() {
-    markSignedOut();
-    window.location.assign("/login");
+    void signOut({ callbackUrl: "/login" });
   }
 
   if (tone === "sidebar") {

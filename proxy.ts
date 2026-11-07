@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { UI_SESSION_COOKIE } from "@/lib/auth/ui-gate";
+import { getToken } from "next-auth/jwt";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const signedIn = request.cookies.get(UI_SESSION_COOKIE)?.value === "1";
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const signedIn = Boolean(token?.id);
 
   if (pathname === "/login") {
     if (signedIn) return NextResponse.redirect(new URL("/dashboard", request.url));

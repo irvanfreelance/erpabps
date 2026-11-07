@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guard, zodError } from "@/lib/api/guard";
 import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/db/audit";
+import { canAccessEmployee } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { educationSchema } from "@/lib/validators/employee";
 
@@ -12,6 +13,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const parsed = educationSchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);
   const sql = getDb();
+  if (!(await canAccessEmployee(sql, g.session!.user, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const rows = await sql`
     INSERT INTO employee_educations (employee_id, level, institution, major, start_year, end_year)
     VALUES (

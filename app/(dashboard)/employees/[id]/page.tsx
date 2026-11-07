@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { GET as getEmployee } from "@/app/api/employees/[id]/route";
 import { GET as listEmployees } from "@/app/api/employees/route";
 import { GET as listLocations } from "@/app/api/locations/route";
@@ -8,6 +9,7 @@ import { GET as listStages } from "@/app/api/contract-stage-options/route";
 import { GET as listComponents } from "@/app/api/salary-components/route";
 import { EmployeeProfile } from "@/components/hrd/employee-profile";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
+import { getServerSession } from "@/lib/auth/session";
 
 export const metadata = { title: "Profil karyawan — ABPS" };
 
@@ -15,6 +17,10 @@ type Opt = { id: string; name: string };
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await getServerSession();
+  if (session?.user.role === "subordinat" && session.user.employeeId && session.user.employeeId !== id) {
+    redirect(`/employees/${session.user.employeeId}`);
+  }
   const [data, emp, positions, ranks, groups, locations, stages, comps] = await Promise.all([
     fromRoute<{
       employee: never;
@@ -38,6 +44,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       educations={data.educations}
       family={data.family}
       contracts={data.contracts}
+      canEditPay={session?.user.role === "superadmin"}
       catalogs={{
         positions: positions.rows,
         ranks: ranks.rows,

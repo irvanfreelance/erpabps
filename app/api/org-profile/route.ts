@@ -21,8 +21,6 @@ const schema = z.object({
 
 export async function GET() {
   try {
-    const g = await guard("org-profile", "read");
-    if (g.error) return g.error;
     const sql = getDb();
     const rows = await sql`SELECT * FROM org_profile WHERE id = 1 LIMIT 1`;
     if (!rows[0]) return NextResponse.json(fallbackOrg());

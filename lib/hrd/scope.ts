@@ -3,12 +3,7 @@ import type { SqlClient } from "@/lib/db";
 
 export async function visibleEmployeeIds(sql: SqlClient, user: SessionUser): Promise<string[] | null> {
   if (user.role === "superadmin") return null;
-  const mine = await sql`
-    SELECT id FROM employees
-    WHERE user_id = ${user.id}::bigint AND deleted_at IS NULL
-    LIMIT 1
-  `;
-  const myId = mine[0] ? String((mine[0] as { id: string }).id) : null;
+  const myId = user.employeeId ?? (await ownEmployeeId(sql, user));
   if (user.role === "subordinat") return myId ? [myId] : ["0"];
   if (!myId) return ["0"];
   const rows = await sql`
@@ -17,6 +12,12 @@ export async function visibleEmployeeIds(sql: SqlClient, user: SessionUser): Pro
       AND (id = ${myId}::bigint OR supervisor_employee_id = ${myId}::bigint)
   `;
   return (rows as { id: string }[]).map((r) => String(r.id));
+}
+
+export async function canAccessEmployee(sql: SqlClient, user: SessionUser, employeeId: string) {
+  const ids = await visibleEmployeeIds(sql, user);
+  if (ids === null) return true;
+  return ids.includes(String(employeeId));
 }
 
 export async function ownEmployeeId(sql: SqlClient, user: SessionUser): Promise<string | null> {

@@ -3,6 +3,7 @@ import type { Role } from "@/types/auth";
 export type Action = "read" | "create" | "update" | "approve";
 
 const ALL_READ: Action[] = ["read"];
+const RU: Action[] = ["read", "update"];
 const RCU: Action[] = ["read", "create", "update"];
 const RCUA: Action[] = ["read", "create", "update", "approve"];
 const RC: Action[] = ["read", "create"];
@@ -17,7 +18,7 @@ const byRole: Record<Role, Record<string, Action[]>> = {
     schedules: RCU,
     "shift-templates": ALL_READ,
     "shift-swaps": RCUA,
-    employees: ALL_READ,
+    employees: RCU,
     "payroll-runs": ALL_READ,
     payslips: ALL_READ,
     "cash-advances": RC,
@@ -43,7 +44,7 @@ const byRole: Record<Role, Record<string, Action[]>> = {
     attendances: ALL_READ,
     schedules: ALL_READ,
     "shift-swaps": RC,
-    employees: ALL_READ,
+    employees: RU,
     payslips: ALL_READ,
     "cash-advances": RC,
     "bonus.monthly": ALL_READ,
@@ -53,6 +54,13 @@ const byRole: Record<Role, Record<string, Action[]>> = {
     approvals: ALL_READ,
     "org-profile": ALL_READ,
     app_config: ALL_READ,
+    locations: ALL_READ,
+    positions: ALL_READ,
+    ranks: ALL_READ,
+    "pay-groups": ALL_READ,
+    "salary-components": ALL_READ,
+    "contract-stages": ALL_READ,
+    holidays: ALL_READ,
   },
 };
 

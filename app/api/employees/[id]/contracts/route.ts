@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { guard, zodError } from "@/lib/api/guard";
 import { actorUserId } from "@/lib/hrd/actor";
+import { canAccessEmployee } from "@/lib/hrd/scope";
 import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/db/audit";
 import { jsonSafe } from "@/lib/utils/serialize";
@@ -12,11 +13,14 @@ const NEXT: Record<string, string> = {
 };
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const g = await guard("employees", "update");
+  const g = await guard("contracts", "create");
   if (g.error) return g.error;
   const { id } = await ctx.params;
   const body = await req.json();
   const sql = getDb();
+  if (!(await canAccessEmployee(sql, g.session!.user, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const actor = await actorUserId(sql, g.session!.user);
   if (!actor) return NextResponse.json({ error: "Superadmin belum di-seed" }, { status: 400 });
 
@@ -73,7 +77,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 }
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const g = await guard("employees", "update");
+  const g = await guard("contracts", "update");
   if (g.error) return g.error;
   const { id } = await ctx.params;
   const parsed = contractPatchSchema.safeParse(await req.json());
@@ -98,7 +102,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const g = await guard("employees", "update");
+  const g = await guard("contracts", "update");
   if (g.error) return g.error;
   const { id } = await ctx.params;
   const contractId = new URL(req.url).searchParams.get("contractId");

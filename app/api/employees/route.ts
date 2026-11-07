@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { guard, zodError } from "@/lib/api/guard";
+import { guard, isDuplicateEmailError, zodError } from "@/lib/api/guard";
 import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/db/audit";
 import { allocateEmployeeNumber } from "@/lib/hrd/employee-number";
+import { ensureEmployeeUser } from "@/lib/hrd/employee-user";
 import { visibleEmployeeIds } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { employeeWriteSchema } from "@/lib/validators/employee";
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
     );
   }
   const nik = g.session!.user.role === "superadmin" && d.nik ? d.nik : null;
+  try {
   const rows = await sql`
     INSERT INTO employees (
       full_name, employee_number, gender, marital_status, birth_date, address, join_date,
@@ -112,7 +114,7 @@ export async function POST(req: Request) {
       FALSE,
       ${d.hourlyRate ?? null},
       ${d.dailyRate ?? null},
-      ${g.session!.user.role === "superadmin" ? d.email || null : null},
+      ${d.email},
       ${g.session!.user.role === "superadmin" ? d.phone || null : null},
       ${nik},
       ${g.session!.user.role === "superadmin" ? d.npwp || null : null},
@@ -125,12 +127,20 @@ export async function POST(req: Request) {
     )
     RETURNING id, full_name, employee_number, record_status, in_payroll
   `;
+  const createdId = String((rows[0] as { id: string }).id);
+  await ensureEmployeeUser(sql, createdId);
   await logAudit({
     userId: g.session!.user.id,
     action: "create",
     entityType: "employee",
-    entityId: String((rows[0] as { id: string }).id),
+    entityId: createdId,
     valueAfter: { fullName: d.fullName, recordStatus: status },
   });
   return NextResponse.json(jsonSafe(rows[0]));
+  } catch (err) {
+    if (isDuplicateEmailError(err)) {
+      return NextResponse.json({ error: "Email sudah dipakai" }, { status: 400 });
+    }
+    throw err;
+  }
 }

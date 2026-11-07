@@ -10,7 +10,7 @@ export default async function Page() {
   let linked = false;
   try {
     const sql = getDb();
-    linked = Boolean(await ownEmployeeId(sql, session.user));
+    linked = Boolean(session && (await ownEmployeeId(sql, session.user)));
   } catch {
     linked = false;
   }

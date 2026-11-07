@@ -5,12 +5,17 @@ import { fallbackOrg, type OrgProfile } from "@/types/org";
 
 export const metadata = { title: "Masuk — CRM RN", description: "Masuk ke CRM dengan Google" };
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; next?: string }>;
+}) {
+  const q = await searchParams;
   let org: OrgProfile;
   try {
     org = await fromRoute<OrgProfile>(await getOrgProfile());
   } catch {
     org = fallbackOrg();
   }
-  return <LoginScreen org={org} />;
+  return <LoginScreen org={org} denied={Boolean(q.error)} />;
 }

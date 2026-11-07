@@ -98,6 +98,7 @@ export function EmployeeProfile({
   family = [],
   contracts = [],
   catalogs,
+  canEditPay = false,
 }: {
   mode?: "create" | "edit";
   employee?: Emp;
@@ -105,6 +106,7 @@ export function EmployeeProfile({
   educations?: { id: string; level: string; institution: string; major: string | null; start_year: number | null; end_year: number | null }[];
   family?: { id: string; relation: string; full_name: string; birth_date: string | null }[];
   contracts?: { id: string; sequence_no: number; start_date: string; end_date: string; status: string; stage_option_id?: string; stage_code: string; stage_name: string }[];
+  canEditPay?: boolean;
   catalogs: {
     positions: Opt[];
     ranks: Opt[];
@@ -162,7 +164,7 @@ export function EmployeeProfile({
       maritalStatus: form.maritalStatus || null,
       employmentStatus: form.employmentStatus || "contract",
       nik: form.nik || null,
-      email: form.email || null,
+      email: form.email.trim().toLowerCase(),
       phone: form.phone || null,
       bankName: form.bankName || null,
       bankAccountNumber: form.bankAccountNumber || null,
@@ -369,8 +371,8 @@ export function EmployeeProfile({
             <Field label="BPJS Ketenagakerjaan" hint="11 digit">
               <input className={inputClass} inputMode="numeric" maxLength={11} value={form.bpjsTkId} onChange={(e) => setForm({ ...form, bpjsTkId: e.target.value.replace(/\D/g, "").slice(0, 11) })} />
             </Field>
-            <Field label="Email (opsional)">
-              <input className={inputClass} type="email" maxLength={255} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Field label="Email">
+              <input className={inputClass} type="email" required maxLength={255} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </Field>
             <Field label="HP (opsional)">
               <input className={inputClass} inputMode="tel" maxLength={16} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d+]/g, "").slice(0, 16) })} />
@@ -491,9 +493,11 @@ export function EmployeeProfile({
       {tab === "kontrak" && (
         <div className={formCard}>
           <p className="mt-0 mb-3 text-[13px] text-[#777]">Kontrak aktif adalah tahap paling mutakhir. Riwayat tahap tetap terlihat di bawah.</p>
-          <ContractActions employeeId={employee.id} stages={catalogs.stages} canAdvance={Boolean(canAdvance)} />
+          {canEditPay ? (
+            <ContractActions employeeId={employee.id} stages={catalogs.stages} canAdvance={Boolean(canAdvance)} />
+          ) : null}
           <div className="mt-4 overflow-x-auto">
-            <ContractTable employeeId={employee.id} rows={contracts} stages={catalogs.stages} />
+            <ContractTable employeeId={employee.id} rows={contracts} stages={catalogs.stages} readOnly={!canEditPay} />
           </div>
         </div>
       )}
@@ -526,6 +530,7 @@ export function EmployeeProfile({
             amount: r.amount == null || r.amount === "" ? "" : String(Math.round(Number(r.amount))),
             effectiveFrom: r.effective_from ? String(r.effective_from).slice(0, 10) : "",
           })}
+          readOnly={!canEditPay}
         />
       )}
         </div>
@@ -617,6 +622,7 @@ function NestedModalList({
   idParam,
   rowValues,
   schema,
+  readOnly = false,
 }: {
   title: string;
   rows: { id: string }[];
@@ -628,6 +634,7 @@ function NestedModalList({
   idParam?: string;
   rowValues?: (row: Record<string, unknown>) => Record<string, string>;
   schema?: z.ZodType;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -683,36 +690,42 @@ function NestedModalList({
     <div className={formCard}>
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="m-0 text-[13px] text-[#777]">{title}</p>
-        <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={openCreate}>
-          Tambah
-        </button>
+        {readOnly ? null : (
+          <button type="button" className={`${btnPrimary} w-full sm:w-auto`} onClick={openCreate}>
+            Tambah
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto">
         <DataTable
           data={rows}
           columns={[
             ...columns,
-            {
-              key: "id",
-              label: "Aksi",
-              render: (r: { id: string } & Record<string, string>) => (
-                <div className="flex flex-wrap gap-1">
-                  <button type="button" className={btnSecondary} onClick={() => openEdit(r)}>Ubah</button>
-                  {onDelete ? (
-                    <button
-                      type="button"
-                      className={btnDangerSm}
-                      onClick={async () => {
-                        if (!(await confirmAction("Hapus data ini?", "Hapus"))) return;
-                        onDelete(r.id);
-                      }}
-                    >
-                      Hapus
-                    </button>
-                  ) : null}
-                </div>
-              ),
-            },
+            ...(readOnly
+              ? []
+              : [
+                  {
+                    key: "id",
+                    label: "Aksi",
+                    render: (r: { id: string } & Record<string, string>) => (
+                      <div className="flex flex-wrap gap-1">
+                        <button type="button" className={btnSecondary} onClick={() => openEdit(r)}>Ubah</button>
+                        {onDelete ? (
+                          <button
+                            type="button"
+                            className={btnDangerSm}
+                            onClick={async () => {
+                              if (!(await confirmAction("Hapus data ini?", "Hapus"))) return;
+                              onDelete(r.id);
+                            }}
+                          >
+                            Hapus
+                          </button>
+                        ) : null}
+                      </div>
+                    ),
+                  },
+                ]),
           ]}
         />
       </div>
@@ -756,10 +769,12 @@ function ContractTable({
   employeeId,
   rows,
   stages,
+  readOnly = false,
 }: {
   employeeId: string;
   rows: { id: string; sequence_no: number; start_date: string; end_date: string; status: string; stage_option_id?: string; stage_code: string; stage_name: string }[];
   stages: Opt[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [edit, setEdit] = useState<(typeof rows)[0] | null>(null);
@@ -786,26 +801,30 @@ function ContractTable({
           { key: "start_date", label: "Awal" },
           { key: "end_date", label: "Akhir" },
           { key: "status", label: "Status", render: (r) => (r.status === "active" ? "aktif" : r.status) },
-          {
-            key: "id",
-            label: "Aksi",
-            render: (r) => (
-              <div className="flex flex-wrap gap-1">
-                <button type="button" className={btnSecondary} onClick={() => open(r)}>Ubah</button>
-                <button
-                  type="button"
-                  className={btnDangerSm}
-                  onClick={async () => {
-                    if (!(await confirmAction("Hapus tahap kontrak ini?", "Hapus"))) return;
-                    await fetch(`/api/employees/${employeeId}/contracts?contractId=${r.id}`, { method: "DELETE" });
-                    router.refresh();
-                  }}
-                >
-                  Hapus
-                </button>
-              </div>
-            ),
-          },
+          ...(readOnly
+            ? []
+            : [
+                {
+                  key: "id",
+                  label: "Aksi",
+                  render: (r: (typeof rows)[0]) => (
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" className={btnSecondary} onClick={() => open(r)}>Ubah</button>
+                      <button
+                        type="button"
+                        className={btnDangerSm}
+                        onClick={async () => {
+                          if (!(await confirmAction("Hapus tahap kontrak ini?", "Hapus"))) return;
+                          await fetch(`/api/employees/${employeeId}/contracts?contractId=${r.id}`, { method: "DELETE" });
+                          router.refresh();
+                        }}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  ),
+                },
+              ]),
         ]}
       />
       {edit && (

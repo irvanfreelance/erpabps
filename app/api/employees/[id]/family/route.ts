@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { guard, zodError } from "@/lib/api/guard";
 import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/db/audit";
+import { canAccessEmployee } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { familySchema } from "@/lib/validators/employee";
 
@@ -12,6 +13,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const parsed = familySchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);
   const sql = getDb();
+  if (!(await canAccessEmployee(sql, g.session!.user, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const rows = await sql`
     INSERT INTO employee_family_members (employee_id, relation, full_name, birth_date)
     VALUES (${id}::bigint, ${parsed.data.relation}, ${parsed.data.fullName}, ${parsed.data.birthDate || null}::date)

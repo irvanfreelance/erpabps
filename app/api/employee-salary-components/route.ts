@@ -6,7 +6,7 @@ import { jsonSafe } from "@/lib/utils/serialize";
 import { salaryComponentAssignSchema } from "@/lib/validators/employee";
 
 export async function POST(req: Request) {
-  const g = await guard("employees", "update");
+  const g = await guard("salary-components", "create");
   if (g.error) return g.error;
   const parsed = salaryComponentAssignSchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const g = await guard("employees", "update");
+  const g = await guard("salary-components", "update");
   if (g.error) return g.error;
   const body = await req.json();
   const id = String(body.id ?? "");
@@ -48,7 +48,7 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const g = await guard("employees", "update");
+  const g = await guard("salary-components", "update");
   if (g.error) return g.error;
   const id = new URL(req.url).searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id wajib" }, { status: 400 });

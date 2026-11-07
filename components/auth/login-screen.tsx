@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { markSignedIn, safeNextPath } from "@/lib/auth/ui-gate";
+import { signIn } from "next-auth/react";
+import { safeNextPath } from "@/lib/auth/ui-gate";
 import type { OrgProfile } from "@/types/org";
 
 function GoogleMark() {
@@ -25,12 +26,12 @@ function GoogleButton({ pending, onClick, className = "" }: { pending: boolean; 
       className={`inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#dadce0] bg-white px-4 text-[15px] font-semibold text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] disabled:opacity-60 ${className}`}
     >
       <GoogleMark />
-      {pending ? "Membuka CRM…" : "Masuk dengan Google"}
+      {pending ? "Membuka Google…" : "Masuk dengan Google"}
     </button>
   );
 }
 
-export function LoginScreen({ org }: { org: OrgProfile }) {
+export function LoginScreen({ org, denied = false }: { org: OrgProfile; denied?: boolean }) {
   const [pending, setPending] = useState(false);
   const [logoOk, setLogoOk] = useState(true);
   const logoSrc = org.logo_url
@@ -40,9 +41,8 @@ export function LoginScreen({ org }: { org: OrgProfile }) {
   function enter() {
     if (pending) return;
     setPending(true);
-    markSignedIn();
     const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
-    window.location.assign(next);
+    void signIn("google", { callbackUrl: next });
   }
 
   function Logo() {
@@ -73,9 +73,12 @@ export function LoginScreen({ org }: { org: OrgProfile }) {
             <Logo />
           </div>
           <h1 className="mt-6 mb-0 text-[30px] font-bold leading-tight">{org.nama}</h1>
-          <p className="mt-2 mb-0 text-[15px] text-white/80">{org.tagline || "CRM donatur internal"}</p>
+          <p className="mt-2 mb-0 text-[15px] text-white/80">{org.tagline || "Absensi dan payroll"}</p>
         </div>
         <div className="relative">
+          {denied ? (
+            <p className="mb-3 text-[13px] text-white/90">Email Google tidak terdaftar sebagai admin atau karyawan.</p>
+          ) : null}
           <GoogleButton pending={pending} onClick={enter} />
         </div>
         <div />
@@ -88,15 +91,17 @@ export function LoginScreen({ org }: { org: OrgProfile }) {
           </div>
           <div>
             <h1 className="m-0 text-[32px] font-bold leading-tight">{org.nama}</h1>
-            <p className="mt-2 mb-0 max-w-sm text-[15px] text-white/80">{org.tagline || "CRM donatur internal"}</p>
+            <p className="mt-2 mb-0 max-w-sm text-[15px] text-white/80">{org.tagline || "Absensi dan payroll"}</p>
           </div>
         </section>
         <section className="flex flex-1 items-center justify-center bg-[#f4f5f7] px-8 py-8">
           <div className="w-full max-w-[420px] rounded-2xl bg-white p-8 shadow-sm">
-            <h2 className="m-0 text-[22px] font-bold text-[var(--primary)]">Login</h2><p>&nbsp;</p>
-            
+            <h2 className="m-0 text-[22px] font-bold text-[var(--primary)]">Login</h2>
+            <p>&nbsp;</p>
+            {denied ? (
+              <p className="mb-3 text-[13px] text-[#b42318]">Email Google tidak terdaftar sebagai admin atau karyawan.</p>
+            ) : null}
             <GoogleButton pending={pending} onClick={enter} className="min-h-11 text-[14px]" />
-            
           </div>
         </section>
       </div>

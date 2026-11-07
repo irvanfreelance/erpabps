@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { AppShell } from "@/components/layout/sidebar";
 import { getServerSession } from "@/lib/auth/session";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession();
+  if (!session) redirect("/login");
   let org: OrgProfile;
   try {
     org = await fromRoute<OrgProfile>(await getOrgProfile());
