@@ -12,7 +12,7 @@ import { Field, formCard } from "@/components/hrd/field";
 import { SearchSelect } from "@/components/shared/search-select";
 import { btnDangerSm, btnPrimary, btnSecondary } from "@/components/ui/button";
 import { EMPLOYMENT_STATUS_OPTIONS } from "@/lib/hrd/static-options";
-import { fmtDate } from "@/lib/utils/format";
+import { fmtDate, fmtTenure } from "@/lib/utils/format";
 
 type Row = {
   id: string;
@@ -130,13 +130,6 @@ export function EmployeesWorkspace({ rows }: { rows: Row[] }) {
     router.refresh();
   }
 
-  function tenureLabel(days: number | null) {
-    if (days == null) return "—";
-    const y = Math.floor(days / 365);
-    const m = Math.floor((days % 365) / 30);
-    if (y <= 0 && m <= 0) return `${days} hari`;
-    return `${y} th ${m} bl`;
-  }
 
   return (
     <div>
@@ -304,25 +297,26 @@ export function EmployeesWorkspace({ rows }: { rows: Row[] }) {
         Menampilkan {filtered.length} dari {rows.length} karyawan
         {chips.length ? ` · ${chips.length} filter aktif` : ""}. Cari nama di kotak tabel.
       </p>
-      <div className={`${formCard} relative z-0 overflow-x-auto p-2 md:p-5`}>
+      <div className={`${formCard} relative z-0 p-2 md:p-5`}>
         <DataTable
           data={filtered}
           exportFilename="karyawan"
           onRow={(r) => router.push(`/employees/${r.id}`)}
           columns={[
-            { key: "full_name", label: "Nama" },
-            { key: "employee_number", label: "Nomor" },
-            { key: "position_name", label: "Jabatan" },
-            { key: "rank_name", label: "Pangkat" },
-            { key: "location_name", label: "Lokasi" },
-            { key: "pay_group_name", label: "Kelompok" },
-            { key: "supervisor_name", label: "Atasan" },
-            { key: "join_date", label: "Bergabung", render: (r) => fmtDate(r.join_date) },
-            { key: "tenure_days", label: "Masa kerja", render: (r) => tenureLabel(r.tenure_days) },
-            { key: "contract_stage", label: "Kontrak" },
+            { key: "full_name", label: "Nama", sticky: "left", width: "14rem", hideable: false },
+            { key: "employee_number", label: "Nomor", width: "5.5rem" },
+            { key: "position_name", label: "Jabatan", width: "8rem" },
+            { key: "rank_name", label: "Pangkat", width: "7.5rem" },
+            { key: "location_name", label: "Lokasi", width: "8rem" },
+            { key: "pay_group_name", label: "Kelompok", width: "9.5rem" },
+            { key: "supervisor_name", label: "Atasan", width: "8rem" },
+            { key: "join_date", label: "Bergabung", width: "7.5rem", render: (r) => fmtDate(r.join_date) },
+            { key: "tenure_days", label: "Masa kerja", width: "8rem", render: (r) => fmtTenure(r.tenure_days) },
+            { key: "contract_stage", label: "Kontrak", width: "8.5rem" },
             {
               key: "contract_end",
               label: "Akhir kontrak",
+              width: "14rem",
               render: (r) =>
                 r.ending_soon ? (
                   <span className="font-semibold text-amber-700">{fmtDate(r.contract_end)} · hampir berakhir</span>
@@ -330,8 +324,8 @@ export function EmployeesWorkspace({ rows }: { rows: Row[] }) {
                   fmtDate(r.contract_end)
                 ),
             },
-            { key: "record_status", label: "Status" },
-            { key: "id", label: "Aksi", render: (r) => (
+            { key: "record_status", label: "Status", width: "5rem" },
+            { key: "id", label: "Aksi", sticky: "right", width: "5.5rem", hideable: false, includeInExport: false, render: (r) => (
               <button type="button" className={btnDangerSm} onClick={() => remove(r.id)}>Hapus</button>
             ) },
           ]}

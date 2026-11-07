@@ -18,12 +18,63 @@ export type Column<T> = {
   hideable?: boolean;
   defaultHidden?: boolean;
   includeInExport?: boolean;
+  sticky?: "left" | "right";
+  width?: string;
 };
 
 const PAGE_SIZES = [10, 25, 50, 100] as const;
 
+const CHECK_W = 40;
+const NO_W = 48;
+
 function numericClass(numeric?: boolean, money?: boolean) {
-  return numeric || money ? "w-px whitespace-nowrap text-right tabular-nums" : "";
+  return numeric || money ? "w-px whitespace-nowrap text-right tabular-nums" : "whitespace-nowrap";
+}
+
+function parseWidthPx(width?: string) {
+  if (!width) return 160;
+  const n = Number.parseFloat(width);
+  if (!Number.isFinite(n)) return 160;
+  if (width.endsWith("rem")) return n * 16;
+  return n;
+}
+
+function stickyOffsets<T>(selectable: boolean, cols: Column<T>[]) {
+  const left = new Map<string, number>();
+  const right = new Map<string, number>();
+  let acc = 0;
+  if (selectable) {
+    left.set("__check", 0);
+    acc += CHECK_W;
+  }
+  left.set("__no", acc);
+  acc += NO_W;
+  for (const c of cols) {
+    if (c.sticky !== "left") continue;
+    left.set(c.key, acc);
+    acc += parseWidthPx(c.width);
+  }
+  acc = 0;
+  for (const c of [...cols].reverse()) {
+    if (c.sticky !== "right") continue;
+    right.set(c.key, acc);
+    acc += parseWidthPx(c.width);
+  }
+  return { left, right };
+}
+
+function stickyClass(side: "left" | "right" | undefined, isHeader: boolean, edge: boolean) {
+  if (!side) return "";
+  const bg = isHeader ? "bg-[var(--primary)]" : "bg-white group-hover:bg-[#f6fffe]";
+  const z = isHeader ? "z-50" : "z-10";
+  const top = isHeader ? "top-0" : "";
+  const shadow =
+    edge && side === "left"
+      ? "shadow-[2px_0_6px_rgba(0,0,0,0.08)]"
+      : edge && side === "right"
+        ? "shadow-[-2px_0_6px_rgba(0,0,0,0.08)]"
+        : "";
+  return `sticky ${top} ${bg} ${z} ${shadow}`;
 }
 
 function cellText<T>(c: Column<T>, row: T) {
@@ -58,6 +109,10 @@ export function DataTable<T extends { id?: string | number }>({
   const [colsOpen, setColsOpen] = useState(false);
 
   const visibleColumns = useMemo(() => columns.filter((c) => !hidden.has(c.key)), [columns, hidden]);
+  const offsets = useMemo(() => stickyOffsets(!!selectable, visibleColumns), [selectable, visibleColumns]);
+  const lastLeftKey = [...visibleColumns].reverse().find((c) => c.sticky === "left")?.key;
+  const firstRightKey = visibleColumns.find((c) => c.sticky === "right")?.key;
+  const freezeNo = visibleColumns.some((c) => c.sticky === "left" || c.sticky === "right");
   const exportColumns = useMemo(
     () =>
       columns.filter((c) => {
@@ -261,16 +316,32 @@ export function DataTable<T extends { id?: string | number }>({
       </div>
       <div className="hidden overflow-hidden rounded-[10px] bg-white shadow-sm md:block">
         {searchBar}
-        <div className="overflow-auto">
-          <table className="w-full min-w-[560px] border-collapse text-[13px]">
-            <thead>
+        <div className="max-h-[min(70vh,calc(100vh-16rem))] overflow-auto">
+          <table className="w-max min-w-full border-collapse text-[13px]">
+            <thead className="sticky top-0 z-40">
               <tr className="text-left text-[12px] font-semibold text-white">
-                {selectable && <th className="w-10 bg-[var(--primary)] px-3 py-2.5" />}
-                <th className="w-12 bg-[var(--primary)] px-3 py-2.5">No</th>
+                {selectable && (
+                  <th
+                    className={`w-10 bg-[var(--primary)] px-3 py-2.5 ${freezeNo ? stickyClass("left", true, false) : "bg-[var(--primary)]"}`}
+                    style={freezeNo ? { left: offsets.left.get("__check") ?? 0, minWidth: CHECK_W, width: CHECK_W } : undefined}
+                  />
+                )}
+                <th
+                  className={`w-12 bg-[var(--primary)] px-3 py-2.5 whitespace-nowrap ${freezeNo ? stickyClass("left", true, !lastLeftKey) : ""}`}
+                  style={freezeNo ? { left: offsets.left.get("__no") ?? 0, minWidth: NO_W, width: NO_W } : undefined}
+                >
+                  No
+                </th>
                 {visibleColumns.map((c) => (
                   <th
                     key={c.key}
-                    className={`cursor-pointer bg-[var(--primary)] px-3 py-2.5 ${numericClass(c.numeric, c.money)} ${c.className ?? ""}`}
+                    className={`cursor-pointer bg-[var(--primary)] px-3 py-2.5 ${numericClass(c.numeric, c.money)} ${c.className ?? ""} ${stickyClass(c.sticky, true, c.key === lastLeftKey || c.key === firstRightKey)}`}
+                    style={{
+                      minWidth: c.width,
+                      width: c.width,
+                      ...(c.sticky === "left" ? { left: offsets.left.get(c.key) } : {}),
+                      ...(c.sticky === "right" ? { right: offsets.right.get(c.key) } : {}),
+                    }}
                     onClick={() => {
                       setSortKey(c.key);
                       setDir((d) => (sortKey === c.key && d === "asc" ? "desc" : "asc"));
@@ -295,10 +366,14 @@ export function DataTable<T extends { id?: string | number }>({
                       if ((e.target as HTMLElement).closest("button, a")) return;
                       onRow?.(row);
                     }}
-                    className={`border-b border-[#f0f0f0] ${onRow ? "cursor-pointer hover:bg-[#f6fffe]" : ""}`}
+                    className={`group border-b border-[#f0f0f0] ${onRow ? "cursor-pointer hover:bg-[#f6fffe]" : ""}`}
                   >
                     {selectable && (
-                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className={`px-3 py-2 ${freezeNo ? stickyClass("left", false, false) : ""}`}
+                        style={freezeNo ? { left: offsets.left.get("__check") ?? 0, minWidth: CHECK_W, width: CHECK_W } : undefined}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <input
                           type="checkbox"
                           checked={checked.has(id)}
@@ -311,9 +386,23 @@ export function DataTable<T extends { id?: string | number }>({
                         />
                       </td>
                     )}
-                    <td className="px-3 py-2 tabular-nums text-[#888]">{start + i + 1}</td>
+                    <td
+                      className={`px-3 py-2 tabular-nums whitespace-nowrap text-[#888] ${freezeNo ? stickyClass("left", false, !lastLeftKey) : ""}`}
+                      style={freezeNo ? { left: offsets.left.get("__no") ?? 0, minWidth: NO_W, width: NO_W } : undefined}
+                    >
+                      {start + i + 1}
+                    </td>
                     {visibleColumns.map((c) => (
-                      <td key={c.key} className={`px-3 py-2 font-normal text-[#5c5c5c] ${numericClass(c.numeric, c.money)}`}>
+                      <td
+                        key={c.key}
+                        className={`px-3 py-2 font-normal text-[#5c5c5c] ${numericClass(c.numeric, c.money)} ${stickyClass(c.sticky, false, c.key === lastLeftKey || c.key === firstRightKey)}`}
+                        style={{
+                          minWidth: c.width,
+                          width: c.width,
+                          ...(c.sticky === "left" ? { left: offsets.left.get(c.key) } : {}),
+                          ...(c.sticky === "right" ? { right: offsets.right.get(c.key) } : {}),
+                        }}
+                      >
                         {cellText(c, row)}
                       </td>
                     ))}

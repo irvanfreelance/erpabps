@@ -87,3 +87,18 @@ export function toNum(v: unknown) {
   if (typeof v === "bigint") return Number(v);
   return Number(v);
 }
+
+/** Perkiraan kalender: 365 hari = 1 tahun, 30 hari = 1 bulan. */
+export function fmtTenure(days: number | null | undefined) {
+  if (days == null || !Number.isFinite(Number(days))) return "—";
+  const total = Math.max(0, Math.floor(Number(days)));
+  const y = Math.floor(total / 365);
+  const rem = total % 365;
+  const m = Math.floor(rem / 30);
+  const d = rem % 30;
+  const parts: string[] = [];
+  if (y > 0) parts.push(`${y} th`);
+  if (m > 0) parts.push(`${m} bl`);
+  if (d > 0 || parts.length === 0) parts.push(`${d} hr`);
+  return parts.join(" ");
+}

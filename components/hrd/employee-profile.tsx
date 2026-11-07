@@ -13,7 +13,7 @@ import { Modal } from "@/components/hrd/modal";
 import { SearchSelect } from "@/components/shared/search-select";
 import { BANK_OPTIONS, EDUCATION_LEVEL_OPTIONS, EMPLOYMENT_STATUS_OPTIONS, FAMILY_RELATION_OPTIONS, MARITAL_OPTIONS, TAX_STATUS_OPTIONS } from "@/lib/hrd/static-options";
 import { btnDangerSm, btnPrimary, btnSecondary } from "@/components/ui/button";
-import { parseMoney } from "@/lib/utils/format";
+import { fmtTenure, parseMoney } from "@/lib/utils/format";
 import { firstIssue } from "@/lib/validators/common";
 import {
   contractCreateSchema,
@@ -244,7 +244,7 @@ export function EmployeeProfile({
       <p className="mb-4 text-[12px] leading-relaxed text-[#666] md:mb-6 md:text-[14px]">
         {mode === "create"
           ? "Isi data dasar di halaman ini (bukan modal). Pendidikan, keluarga, dan kontrak ditambah lewat modal setelah tersimpan."
-          : `Status ${employee.record_status}${employee.tenure_days != null ? ` · masa kerja ${employee.tenure_days} hari` : ""}`}
+          : `Status ${employee.record_status}${employee.tenure_days != null ? ` · masa kerja ${fmtTenure(employee.tenure_days)}` : ""}`}
       </p>
       {activeContract && (
         <div className={`${formCard} mb-4 md:mb-6`}>
@@ -255,21 +255,13 @@ export function EmployeeProfile({
         </div>
       )}
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-6">
-        <aside className="md:sticky md:top-4 md:w-56 md:shrink-0">
-          <div className="md:hidden">
-            <SearchSelect
-              value={tab}
-              onChange={goTab}
-              allowClear={false}
-              options={tabs.map(([id, label]) => ({ value: id, label }))}
-            />
-          </div>
-          <nav className="hidden flex-col gap-1 rounded-2xl p-2 backdrop-blur-xl bg-[color-mix(in_srgb,var(--primary)_14%,white)] md:flex">
+        <aside className="min-w-0 md:sticky md:top-4 md:w-56 md:shrink-0">
+          <nav className="flex flex-row gap-1 overflow-x-auto overscroll-x-contain rounded-2xl p-2 backdrop-blur-xl bg-[color-mix(in_srgb,var(--primary)_14%,white)] md:flex-col md:overflow-visible">
             {tabs.map(([id, label]) => (
               <button
                 key={id}
                 type="button"
-                className={`min-h-11 rounded-xl px-3 text-left text-[13px] ${
+                className={`min-h-11 shrink-0 whitespace-nowrap rounded-xl px-3 text-[13px] md:w-full md:text-left ${
                   tab === id ? "bg-white font-semibold text-[var(--primary)]" : "bg-transparent text-[#555]"
                 }`}
                 onClick={() => goTab(id)}

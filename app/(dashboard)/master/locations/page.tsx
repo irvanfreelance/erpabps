@@ -1,17 +1,22 @@
+import Link from "next/link";
 import { GET as list } from "@/app/api/locations/route";
-import { SimpleCreate } from "@/components/hrd/simple-create";
-import { DataTable } from "@/components/data-table/data-table";
+import { LocationsWorkspace, type LocationRow } from "@/components/hrd/locations-workspace";
 import { fromRoute } from "@/lib/api/from-route";
+import { btnPrimary } from "@/components/ui/button";
 
 export const metadata = { title: "Lokasi — ABPS" };
 
 export default async function Page() {
-  const { rows } = await fromRoute<{ rows: { id: string; code: string; name: string }[] }>(await list());
+  const { rows } = await fromRoute<{ rows: LocationRow[] }>(await list());
   return (
     <div>
-      <h1 className="mb-3 mt-0 text-[20px] font-bold text-[var(--primary)]">Lokasi</h1>
-      <SimpleCreate action="/api/locations" label="Tambah" fields={[{ name: "code", label: "Kode" }, { name: "name", label: "Nama" }]} />
-      <DataTable data={rows} columns={[{ key: "code", label: "Kode" }, { key: "name", label: "Nama" }]} />
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="mt-0 text-[20px] font-bold text-[var(--primary)]">Lokasi</h1>
+        <Link href="/master/locations/new" className={`${btnPrimary} w-full sm:w-auto`}>
+          Tambah lokasi
+        </Link>
+      </div>
+      <LocationsWorkspace rows={rows} />
     </div>
   );
 }

@@ -51,6 +51,7 @@ export const locations = pgTable("locations", {
   id: bigserial("id", { mode: "bigint" }).primaryKey(),
   code: varchar("code", { length: 50 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
+  address: text("address"),
   latitude: numeric("latitude", { precision: 10, scale: 7 }),
   longitude: numeric("longitude", { precision: 10, scale: 7 }),
   radiusMeter: integer("radius_meter").notNull().default(100),

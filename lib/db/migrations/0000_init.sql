@@ -141,6 +141,11 @@ CREATE TABLE IF NOT EXISTS locations (
     deleted_at                  TIMESTAMPTZ
 );
 
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,7);
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,7);
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS radius_meter INT NOT NULL DEFAULT 100;
+ALTER TABLE locations ADD COLUMN IF NOT EXISTS address TEXT;
+
 CREATE TABLE IF NOT EXISTS departments (
     id          BIGSERIAL PRIMARY KEY,
     name        VARCHAR(255) NOT NULL,

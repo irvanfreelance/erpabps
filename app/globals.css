@@ -25,13 +25,13 @@ body {
 a { text-decoration: none; }
 a:not([class*="bg-"]) { color: inherit; }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]),
 textarea {
   font-weight: 400;
   color: #5c5c5c;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([class*="border-0"]),
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]):not([class*="border-0"]),
 textarea:not([class*="border-0"]) {
   border: 1px solid #e8e8e8;
   border-radius: 1rem;
