@@ -64,7 +64,7 @@ function uniq(rows: Row[], key: keyof Row, labels?: Record<string, string>) {
     .map(([value, label]) => ({ value, label }));
 }
 
-export function EmployeesWorkspace({ rows }: { rows: Row[] }) {
+export function EmployeesWorkspace({ rows, canManage = false }: { rows: Row[]; canManage?: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -134,6 +134,8 @@ export function EmployeesWorkspace({ rows }: { rows: Row[] }) {
   return (
     <div>
       <div className="mb-3 flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+        {canManage ? (
+          <>
         <Link href="/employees/new" className={`${btnPrimary} w-full md:w-auto`}>
           Tambah karyawan
         </Link>
@@ -143,6 +145,8 @@ export function EmployeesWorkspace({ rows }: { rows: Row[] }) {
         <button type="button" className={`${btnSecondary} w-full md:w-auto`} onClick={() => fileRef.current?.click()} disabled={importing}>
           {importing ? "Mengimpor…" : "Unggah Excel"}
         </button>
+          </>
+        ) : null}
         <input
           ref={fileRef}
           type="file"
@@ -325,9 +329,21 @@ export function EmployeesWorkspace({ rows }: { rows: Row[] }) {
                 ),
             },
             { key: "record_status", label: "Status", width: "5rem" },
-            { key: "id", label: "Aksi", sticky: "right", width: "5.5rem", hideable: false, includeInExport: false, render: (r) => (
-              <button type="button" className={btnDangerSm} onClick={() => remove(r.id)}>Hapus</button>
-            ) },
+            ...(canManage
+              ? [
+                  {
+                    key: "id",
+                    label: "Aksi",
+                    sticky: "right" as const,
+                    width: "5.5rem",
+                    hideable: false,
+                    includeInExport: false,
+                    render: (r: Row) => (
+                      <button type="button" className={btnDangerSm} onClick={() => remove(r.id)}>Hapus</button>
+                    ),
+                  },
+                ]
+              : []),
           ]}
         />
       </div>

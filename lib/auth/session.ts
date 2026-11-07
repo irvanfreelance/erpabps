@@ -10,21 +10,49 @@ function asRole(v: unknown): Role | null {
   return typeof v === "string" && (ROLES as string[]).includes(v) ? (v as Role) : null;
 }
 
-export async function getServerSession(): Promise<{ user: SessionUser } | null> {
-  const session = await getNextAuthSession(authOptions);
-  const email = session?.user?.email?.trim().toLowerCase();
-  if (!email) return null;
+function fromJwt(session: { user?: Partial<SessionUser> } | null): { user: SessionUser } | null {
+  const user = session?.user;
+  const role = asRole(user?.role);
+  const email = user?.email?.trim().toLowerCase();
+  if (!user?.id || !role || !email) return null;
+  return {
+    user: {
+      id: user.id,
+      nama: user.nama ?? email,
+      email,
+      role,
+      employeeId: user.employeeId ?? null,
+    },
+  };
+}
 
-  const sql = getDb();
-  const adminEmail = adminEmailFromEnv();
-  const rows = await sql`
-    SELECT id, nama, email, role
-    FROM users
-    WHERE lower(email) = ${email} AND deleted_at IS NULL
-    LIMIT 1
-  `;
-  const row = rows[0] as { id: string; nama: string; email: string; role: string } | undefined;
-  if (row) {
+export async function getServerSession(): Promise<{ user: SessionUser } | null> {
+  let session: Awaited<ReturnType<typeof getNextAuthSession>> = null;
+  try {
+    session = await getNextAuthSession(authOptions);
+  } catch {
+    return null;
+  }
+  const jwtSession = fromJwt(session);
+  const email = session?.user?.email?.trim().toLowerCase();
+  if (!email) return jwtSession;
+
+  try {
+    const sql = getDb();
+    const adminEmail = adminEmailFromEnv();
+    const rows = await sql`
+      SELECT id, nama, email, role
+      FROM users
+      WHERE lower(email) = ${email} AND deleted_at IS NULL
+      LIMIT 1
+    `;
+    const row = rows[0] as { id: string; nama: string; email: string; role: string } | undefined;
+    if (!row) {
+      if (adminEmail && email === adminEmail && jwtSession) {
+        return { user: { ...jwtSession.user, role: "superadmin" } };
+      }
+      return jwtSession;
+    }
     const role: Role =
       row.role === "superadmin" || (adminEmail && email === adminEmail) ? "superadmin" : (asRole(row.role) ?? "subordinat");
     const emp = await sql`
@@ -41,29 +69,7 @@ export async function getServerSession(): Promise<{ user: SessionUser } | null> 
         employeeId: emp[0] ? String((emp[0] as { id: string }).id) : null,
       },
     };
+  } catch {
+    return jwtSession;
   }
-
-  if (adminEmail && email === adminEmail && session.user.id && session.user.role) {
-    return {
-      user: {
-        id: session.user.id,
-        nama: session.user.nama,
-        email,
-        role: "superadmin",
-        employeeId: session.user.employeeId ?? null,
-      },
-    };
-  }
-
-  const role = asRole(session.user.role);
-  if (!session.user.id || !role) return null;
-  return {
-    user: {
-      id: session.user.id,
-      nama: session.user.nama,
-      email,
-      role,
-      employeeId: session.user.employeeId ?? null,
-    },
-  };
 }

@@ -20,6 +20,12 @@ export async function canAccessEmployee(sql: SqlClient, user: SessionUser, emplo
   return ids.includes(String(employeeId));
 }
 
+export async function canMutateEmployee(sql: SqlClient, user: SessionUser, employeeId: string) {
+  if (user.role === "superadmin") return true;
+  const mine = user.employeeId ?? (await ownEmployeeId(sql, user));
+  return Boolean(mine && mine === String(employeeId));
+}
+
 export async function ownEmployeeId(sql: SqlClient, user: SessionUser): Promise<string | null> {
   const rows = await sql`
     SELECT id FROM employees

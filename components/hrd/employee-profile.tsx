@@ -99,6 +99,7 @@ export function EmployeeProfile({
   contracts = [],
   catalogs,
   canEditPay = false,
+  canEdit = true,
 }: {
   mode?: "create" | "edit";
   employee?: Emp;
@@ -107,6 +108,7 @@ export function EmployeeProfile({
   family?: { id: string; relation: string; full_name: string; birth_date: string | null }[];
   contracts?: { id: string; sequence_no: number; start_date: string; end_date: string; status: string; stage_option_id?: string; stage_code: string; stage_name: string }[];
   canEditPay?: boolean;
+  canEdit?: boolean;
   catalogs: {
     positions: Opt[];
     ranks: Opt[];
@@ -277,6 +279,7 @@ export function EmployeeProfile({
       {tab === "dasar" && (
         <div className={formCard}>
           <p className="mt-0 mb-4 text-[13px] text-[#5a6b67] md:text-[14px]">Identitas, alamat, jabatan, dan atasan dalam satu form. NIK dan KTP opsional.</p>
+          <fieldset disabled={!canEdit} className="m-0 min-w-0 border-0 p-0">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-5">
             <Field label="Nama lengkap">
               <input className={inputClass} maxLength={255} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
@@ -415,6 +418,8 @@ export function EmployeeProfile({
             </Field>
             ) : null}
           </div>
+          </fieldset>
+          {canEdit ? (
           <div className="mt-6 flex flex-col gap-2 md:flex-row">
             <button type="button" className={`${btnPrimary} w-full md:w-auto`} onClick={saveIdentity}>
               {mode === "create" ? "Simpan karyawan" : "Simpan data dasar"}
@@ -425,6 +430,9 @@ export function EmployeeProfile({
               </button>
             ) : null}
           </div>
+          ) : (
+            <p className="mb-0 mt-4 text-[13px] text-[#666]">Mode lihat. Atasan tidak mengubah data karyawan.</p>
+          )}
         </div>
       )}
 
@@ -458,6 +466,7 @@ export function EmployeeProfile({
             startYear: r.start_year != null ? String(r.start_year) : "",
             endYear: r.end_year != null ? String(r.end_year) : "",
           })}
+          readOnly={!canEdit}
         />
       )}
 
@@ -487,6 +496,7 @@ export function EmployeeProfile({
             fullName: String(r.full_name ?? ""),
             birthDate: r.birth_date ? String(r.birth_date).slice(0, 10) : "",
           })}
+          readOnly={!canEdit}
         />
       )}
 

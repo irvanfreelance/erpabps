@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/db/audit";
 import { allocateEmployeeNumber } from "@/lib/hrd/employee-number";
 import { ensureEmployeeUser } from "@/lib/hrd/employee-user";
-import { canAccessEmployee, visibleEmployeeIds } from "@/lib/hrd/scope";
+import { canMutateEmployee, visibleEmployeeIds } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { employeePatchSchema } from "@/lib/validators/employee";
 
@@ -85,7 +85,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ error: "Atasan tidak boleh diri sendiri" }, { status: 400 });
   }
   const sql = getDb();
-  if (!(await canAccessEmployee(sql, g.session!.user, id))) {
+  if (!(await canMutateEmployee(sql, g.session!.user, id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const current = await sql`
@@ -100,7 +100,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     join_date: string | null;
     record_status: string;
   };
-  const own = g.session!.user.role === "subordinat";
+  const own = g.session!.user.role !== "superadmin";
   const nextStatus = own ? cur.record_status : (d.recordStatus ?? cur.record_status);
   const nextJoin = own ? cur.join_date : d.joinDate !== undefined ? d.joinDate : cur.join_date;
   let nextNum = cur.employee_number;

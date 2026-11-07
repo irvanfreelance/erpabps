@@ -15,7 +15,7 @@ export default async function Page() {
   return (
     <div>
       <h1 className="mb-3 mt-0 text-[20px] font-bold text-[var(--primary)] md:text-[24px]">Karyawan ({emp.rows.length})</h1>
-      <EmployeesWorkspace rows={emp.rows as never[]} />
+      <EmployeesWorkspace rows={emp.rows as never[]} canManage={session?.user.role === "superadmin"} />
     </div>
   );
 }

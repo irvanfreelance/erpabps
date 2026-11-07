@@ -19,10 +19,12 @@ export const authOptions: NextAuthOptions = {
       const resolved = await resolveGoogleIdentity(user.email, user.name ?? "");
       return Boolean(resolved);
     },
-    async jwt({ token, profile, user }) {
+    async jwt({ token, account, profile, user }) {
+      if (!account && !user) return token;
       const email = (profile as { email?: string } | undefined)?.email ?? user?.email ?? token.email;
       const name = (profile as { name?: string } | undefined)?.name ?? token.nama ?? user?.name ?? "";
-      if (typeof email === "string") {
+      if (typeof email !== "string") return token;
+      try {
         const resolved = await resolveGoogleIdentity(email, name);
         if (resolved) {
           token.id = resolved.id;
@@ -31,6 +33,8 @@ export const authOptions: NextAuthOptions = {
           token.role = resolved.role;
           token.employeeId = resolved.employeeId;
         }
+      } catch {
+        /* keep existing token claims if DB is briefly down */
       }
       return token;
     },

@@ -18,7 +18,7 @@ const byRole: Record<Role, Record<string, Action[]>> = {
     schedules: RCU,
     "shift-templates": ALL_READ,
     "shift-swaps": RCUA,
-    employees: RCU,
+    employees: RU,
     "payroll-runs": ALL_READ,
     payslips: ALL_READ,
     "cash-advances": RC,

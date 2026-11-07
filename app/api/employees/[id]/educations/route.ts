@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { guard, zodError } from "@/lib/api/guard";
 import { getDb } from "@/lib/db";
 import { logAudit } from "@/lib/db/audit";
-import { canAccessEmployee } from "@/lib/hrd/scope";
+import { canMutateEmployee } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { educationSchema } from "@/lib/validators/employee";
 
@@ -13,7 +13,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const parsed = educationSchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);
   const sql = getDb();
-  if (!(await canAccessEmployee(sql, g.session!.user, id))) {
+  if (!(await canMutateEmployee(sql, g.session!.user, id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const rows = await sql`
@@ -31,13 +31,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guard("employees", "update");
   if (g.error) return g.error;
-  await ctx.params;
+  const { id } = await ctx.params;
   const body = await req.json();
   const educationId = String(body.educationId ?? "");
   if (!educationId) return NextResponse.json({ error: "educationId wajib" }, { status: 400 });
   const parsed = educationSchema.safeParse(body);
   if (!parsed.success) return zodError(parsed.error);
   const sql = getDb();
+  if (!(await canMutateEmployee(sql, g.session!.user, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const rows = await sql`
     UPDATE employee_educations SET
       level = ${parsed.data.level},
@@ -56,10 +59,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = await guard("employees", "update");
   if (g.error) return g.error;
-  await ctx.params;
+  const { id } = await ctx.params;
   const educationId = new URL(req.url).searchParams.get("educationId");
   if (!educationId) return NextResponse.json({ error: "educationId wajib" }, { status: 400 });
   const sql = getDb();
+  if (!(await canMutateEmployee(sql, g.session!.user, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   await sql`DELETE FROM employee_educations WHERE id = ${educationId}::bigint`;
   await logAudit({ userId: g.session!.user.id, action: "delete", entityType: "employee_education", entityId: educationId });
   return NextResponse.json({ ok: true });

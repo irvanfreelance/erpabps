@@ -8,7 +8,7 @@ import { GET as listRanks } from "@/app/api/ranks/route";
 import { GET as listStages } from "@/app/api/contract-stage-options/route";
 import { GET as listComponents } from "@/app/api/salary-components/route";
 import { EmployeeProfile } from "@/components/hrd/employee-profile";
-import { fromRoute, internalRequest } from "@/lib/api/from-route";
+import { fromRoute, internalRequest, RouteError } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
 export const metadata = { title: "Profil karyawan — ABPS" };
@@ -21,22 +21,35 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (session?.user.role === "subordinat" && session.user.employeeId && session.user.employeeId !== id) {
     redirect(`/employees/${session.user.employeeId}`);
   }
-  const [data, emp, positions, ranks, groups, locations, stages, comps] = await Promise.all([
-    fromRoute<{
-      employee: never;
-      components: never[];
-      educations: never[];
-      family: never[];
-      contracts: never[];
-    }>(await getEmployee(internalRequest(`/api/employees/${id}`), { params: Promise.resolve({ id }) })),
-    fromRoute<{ rows: { id: string; full_name: string }[] }>(await listEmployees()),
-    fromRoute<{ rows: Opt[] }>(await listPositions()),
-    fromRoute<{ rows: Opt[] }>(await listRanks()),
-    fromRoute<{ rows: Opt[] }>(await listPayGroups()),
-    fromRoute<{ rows: Opt[] }>(await listLocations()),
-    fromRoute<{ rows: { id: string; name: string; code: string }[] }>(await listStages()),
-    fromRoute<{ rows: { id: string; name: string; code: string }[] }>(await listComponents()),
-  ]);
+  let data: {
+    employee: never;
+    components: never[];
+    educations: never[];
+    family: never[];
+    contracts: never[];
+  };
+  let emp: { rows: { id: string; full_name: string }[] };
+  let positions: { rows: Opt[] };
+  let ranks: { rows: Opt[] };
+  let groups: { rows: Opt[] };
+  let locations: { rows: Opt[] };
+  let stages: { rows: { id: string; name: string; code: string }[] };
+  let comps: { rows: { id: string; name: string; code: string }[] };
+  try {
+    [data, emp, positions, ranks, groups, locations, stages, comps] = await Promise.all([
+      fromRoute(await getEmployee(internalRequest(`/api/employees/${id}`), { params: Promise.resolve({ id }) })),
+      fromRoute(await listEmployees()),
+      fromRoute(await listPositions()),
+      fromRoute(await listRanks()),
+      fromRoute(await listPayGroups()),
+      fromRoute(await listLocations()),
+      fromRoute(await listStages()),
+      fromRoute(await listComponents()),
+    ]);
+  } catch (err) {
+    if (err instanceof RouteError && err.status === 401) redirect("/login");
+    throw err;
+  }
   return (
     <EmployeeProfile
       employee={data.employee}
@@ -44,6 +57,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       educations={data.educations}
       family={data.family}
       contracts={data.contracts}
+      canEdit={session?.user.role === "superadmin" || session?.user.employeeId === id}
       canEditPay={session?.user.role === "superadmin"}
       catalogs={{
         positions: positions.rows,

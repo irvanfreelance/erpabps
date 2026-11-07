@@ -6,13 +6,17 @@ import { GET as listRanks } from "@/app/api/ranks/route";
 import { GET as listStages } from "@/app/api/contract-stage-options/route";
 import { GET as listComponents } from "@/app/api/salary-components/route";
 import { EmployeeProfile } from "@/components/hrd/employee-profile";
+import { redirect } from "next/navigation";
 import { fromRoute } from "@/lib/api/from-route";
+import { getServerSession } from "@/lib/auth/session";
 
 export const metadata = { title: "Karyawan baru — ABPS" };
 
 type Opt = { id: string; name: string };
 
 export default async function Page() {
+  const session = await getServerSession();
+  if (session?.user.role !== "superadmin") redirect("/employees");
   const [emp, positions, ranks, groups, locations, stages, comps] = await Promise.all([
     fromRoute<{ rows: { id: string; full_name: string }[] }>(await listEmployees()),
     fromRoute<{ rows: Opt[] }>(await listPositions()),
