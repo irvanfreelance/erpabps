@@ -1,7 +1,8 @@
 import { getServerSession as getNextAuthSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { adminEmailFromEnv } from "@/lib/hrd/employee-user";
+import { adminEmailFromEnv, ensureEmployeeUser } from "@/lib/hrd/employee-user";
+import { getImpersonatedEmployeeId } from "@/lib/auth/impersonate";
 import type { Role, SessionUser } from "@/types/auth";
 
 const ROLES: Role[] = ["superadmin", "superordinat", "subordinat"];
@@ -54,22 +55,66 @@ export async function getServerSession(): Promise<{ user: SessionUser } | null> 
       }
       return jwtSession;
     }
-    const role: Role =
+    const realRole: Role =
       row.role === "superadmin" || (adminEmail && email === adminEmail) ? "superadmin" : (asRole(row.role) ?? "subordinat");
+    
     const emp = await sql`
       SELECT id FROM employees
       WHERE deleted_at IS NULL AND (user_id = ${row.id}::bigint OR lower(email) = ${email})
       LIMIT 1
     `;
-    return {
-      user: {
-        id: String(row.id),
-        nama: row.nama,
-        email: row.email,
-        role,
-        employeeId: emp[0] ? String((emp[0] as { id: string }).id) : null,
-      },
+    const realEmployeeId = emp[0] ? String((emp[0] as { id: string }).id) : null;
+
+    const realUser: SessionUser = {
+      id: String(row.id),
+      nama: row.nama,
+      email: row.email,
+      role: realRole,
+      employeeId: realEmployeeId,
     };
+
+    // Impersonation check: Hanya jika user aslinya adalah superadmin
+    if (realRole === "superadmin") {
+      const impEmpId = await getImpersonatedEmployeeId();
+      if (impEmpId) {
+        // Cari data karyawan target
+        const targetEmp = await sql`
+          SELECT e.id, e.full_name, e.email, e.user_id,
+            (SELECT COUNT(*) FROM employees k WHERE k.supervisor_employee_id = e.id AND k.deleted_at IS NULL) as sub_count
+          FROM employees e
+          WHERE e.id = ${impEmpId}::bigint AND e.deleted_at IS NULL
+          LIMIT 1
+        `;
+        const t = targetEmp[0] as { id: string; full_name: string; email: string | null; user_id: string | null; sub_count: string | number } | undefined;
+        if (t) {
+          // Buat atau dapatkan user_id jika belum ada akun login
+          let targetUserId = t.user_id ? String(t.user_id) : null;
+          if (!targetUserId && t.email) {
+            targetUserId = await ensureEmployeeUser(sql, String(t.id));
+          }
+
+          const hasSubordinates = Number(t.sub_count || 0) > 0;
+          const impersonatedRole: Role = hasSubordinates ? "superordinat" : "subordinat";
+
+          return {
+            user: {
+              id: targetUserId || `emp_${t.id}`,
+              nama: t.full_name,
+              email: t.email || `karyawan_${t.id}@internal.abps`,
+              role: impersonatedRole,
+              employeeId: String(t.id),
+              impersonatedBy: {
+                id: realUser.id,
+                nama: realUser.nama,
+                email: realUser.email,
+              },
+            },
+          };
+        }
+      }
+    }
+
+    return { user: realUser };
   } catch {
     return jwtSession;
   }

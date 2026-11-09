@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, ChevronUp, SlidersHorizontal, UserCheck, X } from "lucide-react";
 import { parseAsBoolean, parseAsString, useQueryStates } from "nuqs";
 import { toast } from "sonner";
 import { confirmAction } from "@/components/ui/confirm-toast";
@@ -64,11 +64,20 @@ function uniq(rows: Row[], key: keyof Row, labels?: Record<string, string>) {
     .map(([value, label]) => ({ value, label }));
 }
 
-export function EmployeesWorkspace({ rows, canManage = false }: { rows: Row[]; canManage?: boolean }) {
+export function EmployeesWorkspace({
+  rows,
+  canManage = false,
+  isSuperadmin = false,
+}: {
+  rows: Row[];
+  canManage?: boolean;
+  isSuperadmin?: boolean;
+}) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [open, setOpen] = useState(false);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [f, setF] = useQueryStates(filterParsers, { history: "replace" });
 
   const filtered = useMemo(() => {
@@ -98,25 +107,54 @@ export function EmployeesWorkspace({ rows, canManage = false }: { rows: Row[]; c
     if (f.payGroup) items.push({ key: "payGroup", label: `Kelompok: ${f.payGroup}` });
     if (f.supervisor) items.push({ key: "supervisor", label: `Atasan: ${f.supervisor}` });
     if (f.gender) items.push({ key: "gender", label: `Kelamin: ${GENDER_LABEL[f.gender] ?? f.gender}` });
-    if (f.payroll) items.push({ key: "payroll", label: `Payroll: ${f.payroll === "yes" ? "Ikut" : "Tidak ikut"}` });
+    if (f.payroll) items.push({ key: "payroll", label: `Payroll: ${f.payroll === "yes" ? "Ikut" : "Tidak"}` });
     if (f.ending) items.push({ key: "ending", label: "Kontrak hampir berakhir" });
     return items;
   }, [f]);
 
   async function remove(id: string) {
-    if (!(await confirmAction("Hapus karyawan ini?", "Hapus"))) return;
+    const ok = await confirmAction("Data karyawan akan diarsipkan (soft-delete). Lanjutkan?", "Hapus");
+    if (!ok) return;
     const res = await fetch(`/api/employees/${id}`, { method: "DELETE" });
-    if (!res.ok) toast.error("Gagal");
-    else {
-      toast.success("Diarsipkan");
-      router.refresh();
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(typeof err.error === "string" ? err.error : "Gagal menghapus");
+      return;
+    }
+    toast.success("Karyawan dihapus");
+    router.refresh();
+  }
+
+  async function impersonate(emp: Row) {
+    const ok = await confirmAction(
+      `Login sebagai ${emp.full_name} (${emp.position_name || "Karyawan"}) untuk melihat aplikasi dari sudut pandang mereka?`,
+      "Login As"
+    );
+    if (!ok) return;
+
+    setImpersonatingId(emp.id);
+    try {
+      const res = await fetch("/api/auth/impersonate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: emp.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal melakukan impersonasi");
+      }
+      toast.success(data.message || `Login sebagai ${emp.full_name}`);
+      window.location.href = "/attendances/clock";
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Terjadi kesalahan");
+      setImpersonatingId(null);
     }
   }
 
   async function onImport(file: File) {
     setImporting(true);
     const fd = new FormData();
-    fd.set("file", file);
+    fd.append("file", file);
     const res = await fetch("/api/employees/import", { method: "POST", body: fd });
     setImporting(false);
     const json = await res.json().catch(() => ({}));
@@ -130,21 +168,20 @@ export function EmployeesWorkspace({ rows, canManage = false }: { rows: Row[]; c
     router.refresh();
   }
 
-
   return (
     <div>
       <div className="mb-3 flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
         {canManage ? (
           <>
-        <Link href="/employees/new" className={`${btnPrimary} w-full md:w-auto`}>
-          Tambah karyawan
-        </Link>
-        <a href="/api/employees/import" className={`${btnSecondary} w-full md:w-auto`}>
-          Unduh template Excel
-        </a>
-        <button type="button" className={`${btnSecondary} w-full md:w-auto`} onClick={() => fileRef.current?.click()} disabled={importing}>
-          {importing ? "Mengimpor…" : "Unggah Excel"}
-        </button>
+            <Link href="/employees/new" className={`${btnPrimary} w-full md:w-auto`}>
+              Tambah karyawan
+            </Link>
+            <a href="/api/employees/import" className={`${btnSecondary} w-full md:w-auto`}>
+              Unduh template Excel
+            </a>
+            <button type="button" className={`${btnSecondary} w-full md:w-auto`} onClick={() => fileRef.current?.click()} disabled={importing}>
+              {importing ? "Mengimpor…" : "Unggah Excel"}
+            </button>
           </>
         ) : null}
         <input
@@ -256,31 +293,34 @@ export function EmployeesWorkspace({ rows, canManage = false }: { rows: Row[]; c
                   { value: "male", label: "Laki-laki" },
                   { value: "female", label: "Perempuan" },
                 ]}
-                placeholder="Semua"
+                placeholder="Semua gender"
               />
             </Field>
-            <Field label="Ikut payroll">
+            <Field label="Keikutsertaan payroll">
               <SearchSelect
                 value={f.payroll}
                 onChange={(v) => void setF({ payroll: v })}
                 options={[
-                  { value: "yes", label: "Ikut" },
-                  { value: "no", label: "Tidak ikut" },
+                  { value: "yes", label: "Ikut payroll" },
+                  { value: "no", label: "Tidak ikut payroll" },
                 ]}
-                placeholder="Semua"
+                placeholder="Semua status payroll"
               />
             </Field>
-            <Field label="Kontrak">
-              <SearchSelect
-                value={f.ending ? "soon" : ""}
-                onChange={(v) => void setF({ ending: v === "soon" })}
-                options={[{ value: "soon", label: "Hampir berakhir (≤ 30 hari)" }]}
-                placeholder="Semua kontrak"
-              />
+            <Field label="Pengingat kontrak">
+              <label className="flex min-h-10 cursor-pointer items-center gap-2 text-[13px] text-[#4d6e68]">
+                <input
+                  type="checkbox"
+                  checked={f.ending}
+                  onChange={(e) => void setF({ ending: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                />
+                <span>Hanya kontrak hampir berakhir</span>
+              </label>
             </Field>
           </div>
           {chips.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-[#e8ecea] pt-3">
               {chips.map((c) => (
                 <button
                   key={c.key}
@@ -329,6 +369,33 @@ export function EmployeesWorkspace({ rows, canManage = false }: { rows: Row[]; c
                 ),
             },
             { key: "record_status", label: "Status", width: "5rem" },
+            ...(isSuperadmin
+              ? [
+                  {
+                    key: "impersonate",
+                    label: "Login As",
+                    sticky: "right" as const,
+                    width: "7.5rem",
+                    hideable: false,
+                    includeInExport: false,
+                    render: (r: Row) => (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          impersonate(r);
+                        }}
+                        disabled={impersonatingId === r.id}
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-amber-600 px-2.5 text-[12px] font-semibold !text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+                        title={`Login sebagai ${r.full_name}`}
+                      >
+                        <UserCheck size={14} />
+                        <span>{impersonatingId === r.id ? "Masuk…" : "Login As"}</span>
+                      </button>
+                    ),
+                  },
+                ]
+              : []),
             ...(canManage
               ? [
                   {
@@ -339,7 +406,16 @@ export function EmployeesWorkspace({ rows, canManage = false }: { rows: Row[]; c
                     hideable: false,
                     includeInExport: false,
                     render: (r: Row) => (
-                      <button type="button" className={btnDangerSm} onClick={() => remove(r.id)}>Hapus</button>
+                      <button
+                        type="button"
+                        className={btnDangerSm}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          remove(r.id);
+                        }}
+                      >
+                        Hapus
+                      </button>
                     ),
                   },
                 ]
