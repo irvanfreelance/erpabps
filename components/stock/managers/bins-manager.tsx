@@ -238,3 +238,4 @@ export function BinsManager({ rows }: { rows: BinRow[] }) {
     </div>
   );
 }
+

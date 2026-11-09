@@ -264,3 +264,4 @@ export function PriceListsManager({ rows }: { rows: PriceListRow[] }) {
     </div>
   );
 }
+

@@ -139,3 +139,4 @@ export function SalesInvoicesManager({ rows }: { rows: SalesInvoiceRow[] }) {
     </div>
   );
 }
+

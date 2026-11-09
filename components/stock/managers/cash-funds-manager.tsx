@@ -197,3 +197,4 @@ export function CashFundsManager({ rows }: { rows: CashFundRow[] }) {
     </div>
   );
 }
+

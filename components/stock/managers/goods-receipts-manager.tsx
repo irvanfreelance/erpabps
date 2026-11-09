@@ -123,3 +123,4 @@ export function GoodsReceiptsManager({ rows }: { rows: GoodsReceiptRow[] }) {
     </div>
   );
 }
+

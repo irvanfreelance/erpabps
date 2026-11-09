@@ -110,3 +110,4 @@ export function StockCountsManager({ rows }: { rows: StockCountRow[] }) {
     </div>
   );
 }
+

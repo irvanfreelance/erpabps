@@ -224,3 +224,4 @@ export function PartiesManager({ rows }: { rows: PartyRow[] }) {
     </div>
   );
 }
+

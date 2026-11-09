@@ -90,3 +90,4 @@ export function VendorPaymentsManager({ rows }: { rows: VendorPaymentRow[] }) {
     </div>
   );
 }
+

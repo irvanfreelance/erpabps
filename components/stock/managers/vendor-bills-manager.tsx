@@ -116,3 +116,4 @@ export function VendorBillsManager({ rows }: { rows: VendorBillRow[] }) {
     </div>
   );
 }
+
