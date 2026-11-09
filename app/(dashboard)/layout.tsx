@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { AppShell } from "@/components/layout/sidebar";
 import { ImpersonateBanner } from "@/components/layout/impersonate-banner";
+import { NavigationProgressBar } from "@/components/layout/nav-progress";
 import { getServerSession } from "@/lib/auth/session";
 import { GET as getOrgProfile } from "@/app/api/org-profile/route";
 import { fromRoute } from "@/lib/api/from-route";
@@ -28,6 +29,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         } as React.CSSProperties
       }
     >
+      <NavigationProgressBar />
       {session.user.impersonatedBy && (
         <ImpersonateBanner
           impersonatedBy={session.user.impersonatedBy}
