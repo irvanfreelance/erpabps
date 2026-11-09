@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockCategoriesTable } from "@/components/stock/stock-tables";
+import { CategoriesManager } from "@/components/stock/managers/categories-manager";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Kategori Barang" };
@@ -27,14 +27,13 @@ export default async function StockCategoriesPage() {
     <div className="space-y-4">
       <div>
         <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
-          Kategori Barang ({jsonSafe(rows).length})
+          Kategori Barang & Bahan ({jsonSafe(rows).length})
         </h1>
-        <p className="text-xs text-gray-500 m-0">Klasifikasi kelompok bahan baku mentah dan barang olahan setengah jadi</p>
+        <p className="text-xs text-gray-500 m-0">Pengelompokan barang untuk klasifikasi persediaan, HPP, dan laporan</p>
       </div>
       <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
-        <StockCategoriesTable rows={jsonSafe(rows) as never} />
+        <CategoriesManager rows={jsonSafe(rows) as never} />
       </div>
     </div>
   );
 }
-

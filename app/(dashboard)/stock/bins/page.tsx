@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockBinsTable } from "@/components/stock/stock-tables";
+import { BinsManager } from "@/components/stock/managers/bins-manager";
 import { jsonSafe } from "@/lib/utils/serialize";
 
-export const metadata = { title: "Bin Gudang & Freezer" };
+export const metadata = { title: "Bin Lokasi" };
 
 export default async function StockBinsPage() {
   const session = await getServerSession();
@@ -14,26 +14,26 @@ export default async function StockBinsPage() {
 
   const sql = getDb();
   const rows = await sql`
-    SELECT sb.id, sb.code, sb.name, sb.bin_kind, sb.is_receiving,
-           l.name as location_name
-    FROM stock_bins sb
-    LEFT JOIN locations l ON sb.location_id = l.id
-    WHERE sb.deleted_at IS NULL
-    ORDER BY sb.id ASC
+    SELECT b.id, b.code, b.name, b.bin_kind, b.is_receiving,
+           COUNT(sb.id)::int as balance_count
+    FROM stock_bins b
+    LEFT JOIN stock_balances sb ON b.id = sb.bin_id AND sb.qty > 0
+    WHERE b.deleted_at IS NULL
+    GROUP BY b.id, b.code, b.name, b.bin_kind, b.is_receiving
+    ORDER BY b.code ASC
   `;
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
-          Master Bin Gudang & Freezer ({jsonSafe(rows).length})
+          Bin Lokasi Gudang ({jsonSafe(rows).length})
         </h1>
-        <p className="text-xs text-gray-500 m-0">Tempat fisik penyimpanan barang di dapur pusat (Gudang Penerimaan & Freezer Olahan)</p>
+        <p className="text-xs text-gray-500 m-0">Tempat penyimpanan fisik barang (Gudang Bahan, Freezer Penyimpanan)</p>
       </div>
       <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
-        <StockBinsTable rows={jsonSafe(rows) as never} />
+        <BinsManager rows={jsonSafe(rows) as never} />
       </div>
     </div>
   );
 }
-

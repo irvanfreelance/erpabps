@@ -88,6 +88,14 @@ export function toNum(v: unknown) {
   return Number(v);
 }
 
+export function fmtQty(val: number | string | null | undefined): string {
+  if (val == null || val === "") return "0";
+  const num = typeof val === "string" ? parseFloat(val) : val;
+  return new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 2,
+  }).format(num || 0);
+}
+
 /** Perkiraan kalender: 365 hari = 1 tahun, 30 hari = 1 bulan. */
 export function fmtTenure(days: number | null | undefined) {
   if (days == null || !Number.isFinite(Number(days))) return "—";

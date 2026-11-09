@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockUomsTable } from "@/components/stock/stock-tables";
+import { UomsManager } from "@/components/stock/managers/uoms-manager";
 import { jsonSafe } from "@/lib/utils/serialize";
 
-export const metadata = { title: "Satuan Ukur (UoM)" };
+export const metadata = { title: "Satuan UOM" };
 
 export default async function StockUomsPage() {
   const session = await getServerSession();
@@ -27,14 +27,13 @@ export default async function StockUomsPage() {
     <div className="space-y-4">
       <div>
         <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
-          Satuan Ukur (UoM) ({jsonSafe(rows).length})
+          Satuan Ukuran / UOM ({jsonSafe(rows).length})
         </h1>
-        <p className="text-xs text-gray-500 m-0">Standar satuan kuantitas inventori (Kilogram, Gram, Pcs, Liter)</p>
+        <p className="text-xs text-gray-500 m-0">Satuan hitung persediaan dapur (kg, gr, pcs, pack, liter)</p>
       </div>
       <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
-        <StockUomsTable rows={jsonSafe(rows) as never} />
+        <UomsManager rows={jsonSafe(rows) as never} />
       </div>
     </div>
   );
 }
-
