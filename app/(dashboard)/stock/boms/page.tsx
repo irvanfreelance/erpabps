@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { BomsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtDate } from "@/lib/utils/format";
 
 export const metadata = { title: "Resep & Komposisi (BOM)" };
 
@@ -28,18 +27,17 @@ export default async function BomsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Resep & Komposisi Produksi (BOM)"
-      subtitle="Standar bahan baku untuk setiap takaran produksi olahan dapur pusat"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "output_name", label: "Barang Hasil" },
-        { key: "output_qty", label: "Standar Hasil", render: (r) => `${Number(r.output_qty)} ${r.uom_code}`, numeric: true },
-        { key: "material_count", label: "Jumlah Komponen Bahan", numeric: true },
-        { key: "effective_from", label: "Berlaku Mulai", render: (r) => fmtDate(r.effective_from) },
-        { key: "effective_to", label: "Berlaku Sampai", render: (r) => r.effective_to ? fmtDate(r.effective_to) : "Seterusnya" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Resep & Komposisi (BOM) ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Standar bahan baku untuk setiap takaran produksi olahan dapur pusat</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <BomsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

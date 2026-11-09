@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockUomsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Satuan Ukur (UoM)" };
@@ -24,16 +24,17 @@ export default async function StockUomsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Satuan Ukur (Unit of Measure)"
-      subtitle="Standar satuan kuantitas inventori (Kilogram, Gram, Pcs, Liter)"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "code", label: "Kode Satuan" },
-        { key: "name", label: "Nama Satuan" },
-        { key: "item_count", label: "Dipakai di Katalog", numeric: true },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Satuan Ukur (UoM) ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Standar satuan kuantitas inventori (Kilogram, Gram, Pcs, Liter)</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockUomsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

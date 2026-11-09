@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { PriceListsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtDate } from "@/lib/utils/format";
 
 export const metadata = { title: "Daftar Harga & Margin" };
 
@@ -23,18 +22,17 @@ export default async function PriceListsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Daftar Harga & Kebijakan Margin"
-      subtitle="Persentase margin harga jual di atas HPP satuan per kanal penerima"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "code", label: "Kode Daftar Harga" },
-        { key: "party_kind", label: "Kanal Penerima", render: (r) => <span className="uppercase text-xs font-semibold">{r.party_kind}</span> },
-        { key: "margin_percent", label: "Margin Keuntungan", render: (r) => <span className="font-bold text-emerald-700 text-sm">+{Number(r.margin_percent).toFixed(1)}%</span>, numeric: true },
-        { key: "effective_from", label: "Berlaku Mulai", render: (r) => fmtDate(r.effective_from) },
-        { key: "effective_to", label: "Berlaku Sampai", render: (r) => r.effective_to ? fmtDate(r.effective_to) : "Seterusnya" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Daftar Harga & Kebijakan Margin ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Persentase margin harga jual di atas HPP satuan per kanal penerima</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <PriceListsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

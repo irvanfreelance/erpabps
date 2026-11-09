@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockMovesTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Kartu Stok" };
 
@@ -28,27 +27,17 @@ export default async function StockMovesPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Kartu Stok & Mutasi (Stock Moves)"
-      subtitle="Jejak audit setiap pergerakan barang: penerimaan, konsumsi, hasil olahan, dan pengiriman"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "move_time", label: "Waktu" },
-        { key: "item_name", label: "Nama Barang" },
-        { key: "bin_name", label: "Bin Lokasi" },
-        { key: "move_kind", label: "Jenis Mutasi", render: (r) => (
-          <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${
-            r.move_kind === 'receipt' || r.move_kind === 'produce' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
-          }`}>
-            {r.move_kind}
-          </span>
-        )},
-        { key: "qty", label: "Kuantitas", render: (r) => `${Number(r.qty)} ${r.uom_code}`, numeric: true },
-        { key: "unit_cost", label: "Biaya Satuan", render: (r) => fmtRp(r.unit_cost), numeric: true },
-        { key: "value", label: "Total Nilai", render: (r) => fmtRp(r.value), numeric: true },
-        { key: "source_type", label: "Dokumen Asal", render: (r) => `${r.source_type} #${r.source_id}` },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Kartu Stok & Mutasi ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Jejak audit setiap pergerakan barang: penerimaan, konsumsi, hasil olahan, dan pengiriman</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockMovesTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

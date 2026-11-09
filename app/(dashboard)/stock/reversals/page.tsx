@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockReversalsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Koreksi / Pembalik Stok" };
@@ -23,18 +23,17 @@ export default async function StockReversalsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Koreksi & Dokumen Pembalik (Reversal)"
-      subtitle="Dokumen posted tidak diubah langsung melainkan diperbaiki lewat pembalik yang diaudit"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. Pembalik" },
-        { key: "source_type", label: "Dokumen Asal", render: (r) => `${r.source_type} #${r.source_id}` },
-        { key: "reason", label: "Alasan Koreksi" },
-        { key: "creator_name", label: "Diajukan Oleh" },
-        { key: "posted_at", label: "Waktu Eksekusi" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Koreksi & Dokumen Pembalik ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Dokumen posted tidak diubah langsung melainkan diperbaiki lewat pembalik yang diaudit</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockReversalsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

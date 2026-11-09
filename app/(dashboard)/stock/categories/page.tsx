@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockCategoriesTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Kategori Barang" };
@@ -24,16 +24,17 @@ export default async function StockCategoriesPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Kategori Barang"
-      subtitle="Klasifikasi kelompok bahan baku mentah dan barang olahan setengah jadi"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "code", label: "Kode Kategori" },
-        { key: "name", label: "Nama Kategori" },
-        { key: "item_count", label: "Jumlah Barang Terdaftar", numeric: true },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Kategori Barang ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Klasifikasi kelompok bahan baku mentah dan barang olahan setengah jadi</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockCategoriesTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

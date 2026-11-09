@@ -20,7 +20,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const isAdmin = user.role === "superadmin" || Boolean(user.impersonatedBy);
   const ownRow = user.employeeId === id;
 
-  // Single batched query pipeline langsung ke database tanpa 9 HTTP roundtrips
+  // Single batched query pipeline langsung ke database dengan schema yang presisi
   const [
     employeeRows,
     components,
@@ -92,10 +92,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     `,
     sql`SELECT id, name FROM positions WHERE deleted_at IS NULL ORDER BY name`,
     sql`SELECT id, name FROM ranks WHERE deleted_at IS NULL ORDER BY name`,
-    sql`SELECT id, name FROM pay_groups WHERE deleted_at IS NULL ORDER BY name`,
+    sql`SELECT id, name FROM pay_groups ORDER BY name`,
     sql`SELECT id, name FROM locations WHERE deleted_at IS NULL ORDER BY name`,
-    sql`SELECT id, name, code FROM contract_stage_options WHERE deleted_at IS NULL ORDER BY sequence_no`,
-    sql`SELECT id, name, code FROM salary_components WHERE deleted_at IS NULL ORDER BY code`,
+    sql`SELECT id, name, code FROM contract_stage_options ORDER BY sort_order`,
+    sql`SELECT id, name, code FROM salary_components ORDER BY name`,
     sql`SELECT id, code, name FROM employee_types WHERE deleted_at IS NULL ORDER BY name`,
   ]);
 

@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { ProductionOrdersTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Perintah Produksi" };
 
@@ -31,21 +30,17 @@ export default async function ProductionOrdersPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Perintah Produksi (Ungkep & Olahan)"
-      subtitle="Konversi bahan baku dari gudang menjadi barang setengah jadi ke freezer dengan perhitungan gulung HPP"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. MO" },
-        { key: "output_name", label: "Barang Hasil" },
-        { key: "output_qty", label: "Kuantitas Hasil", render: (r) => `${Number(r.output_qty)} ${r.uom_code}`, numeric: true },
-        { key: "output_bin", label: "Lokasi Simpan" },
-        { key: "total_cost", label: "Total Biaya Bahan", render: (r) => fmtRp(r.total_cost), numeric: true },
-        { key: "unit_cost", label: "HPP Satuan Hasil", render: (r) => <span className="font-bold text-purple-700">{fmtRp(r.unit_cost)} / {r.uom_code}</span>, numeric: true },
-        { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
-        { key: "posted_at", label: "Waktu Selesai" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Perintah Produksi (Ungkep) ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Konversi bahan baku dari gudang menjadi barang setengah jadi ke freezer dengan perhitungan gulung HPP</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <ProductionOrdersTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

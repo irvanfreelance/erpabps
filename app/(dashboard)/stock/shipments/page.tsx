@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { ShipmentsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtDate, fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Pengiriman (Surat Jalan)" };
 
@@ -29,20 +28,17 @@ export default async function ShipmentsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Pengiriman Barang (Delivery Orders)"
-      subtitle="Surat jalan dan pelepasan stok barang dari freezer ke outlet dan catering"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. Surat Jalan" },
-        { key: "so_no", label: "No. Order (SO)" },
-        { key: "source_bin", label: "Keluar Dari Bin" },
-        { key: "shipped_on", label: "Tanggal Kirim", render: (r) => fmtDate(r.shipped_on) },
-        { key: "total_cogs", label: "HPP Stok Keluar", render: (r) => <span className="font-bold text-blue-700">{fmtRp(r.total_cogs)}</span>, numeric: true },
-        { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
-        { key: "posted_at", label: "Waktu Posting" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Pengiriman Barang (Surat Jalan) ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Surat jalan dan pelepasan stok barang dari freezer ke outlet dan catering</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <ShipmentsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

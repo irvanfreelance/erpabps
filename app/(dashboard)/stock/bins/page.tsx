@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockBinsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Bin Gudang & Freezer" };
@@ -23,20 +23,17 @@ export default async function StockBinsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Master Bin Gudang & Freezer"
-      subtitle="Tempat fisik penyimpanan barang di dapur pusat (Gudang Penerimaan & Freezer Olahan)"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "code", label: "Kode Bin" },
-        { key: "name", label: "Nama Bin / Ruang" },
-        { key: "bin_kind", label: "Fungsi Bin", render: (r) => <span className="uppercase text-xs font-semibold">{r.bin_kind}</span> },
-        { key: "is_receiving", label: "Pintu Masuk Pembelian", render: (r) => r.is_receiving ? (
-          <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">Ya (Penerimaan Utama)</span>
-        ) : "Tidak" },
-        { key: "location_name", label: "Lokasi Fisik", render: (r) => r.location_name || "Dapur Pusat" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Master Bin Gudang & Freezer ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Tempat fisik penyimpanan barang di dapur pusat (Gudang Penerimaan & Freezer Olahan)</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockBinsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

@@ -16,6 +16,12 @@ const ALL: Role[] = ["superadmin", "superordinat", "subordinat"];
 
 export const NAV_HR: NavGroup[] = [
   {
+    group: "Dasbor & Ringkasan",
+    items: [
+      { href: "/dashboard", label: "Dasbor HRD", roles: SA },
+    ],
+  },
+  {
     group: "Aktivitas Utama",
     items: [
       { href: "/employees", label: "Karyawan", roles: ALL },
@@ -67,6 +73,12 @@ export const NAV_HR: NavGroup[] = [
 
 export const NAV_STOCK: NavGroup[] = [
   {
+    group: "Dasbor & Ringkasan",
+    items: [
+      { href: "/stock/reports", label: "Dasbor & Laporan Stok", roles: SA },
+    ],
+  },
+  {
     group: "Pembelian & Kas",
     items: [
       { href: "/stock/purchase-requests", label: "Permintaan Belanja", roles: SA },
@@ -110,12 +122,6 @@ export const NAV_STOCK: NavGroup[] = [
       { href: "/stock/parties", label: "Vendor, Outlet & Katering", roles: SA },
       { href: "/stock/categories", label: "Kategori Barang", roles: SA },
       { href: "/stock/uoms", label: "Satuan Ukur (UoM)", roles: SA },
-    ],
-  },
-  {
-    group: "Laporan Stok & HPP",
-    items: [
-      { href: "/stock/reports", label: "Laporan Terpadu HPP & Laba", roles: SA },
     ],
   },
 ];

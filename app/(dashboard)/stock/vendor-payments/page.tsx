@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { VendorPaymentsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtDate, fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Pembayaran Vendor" };
 
@@ -27,21 +26,17 @@ export default async function VendorPaymentsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Pembayaran Vendor (Vendor Payments)"
-      subtitle="Realisasi pelunasan hutang vendor hanya setelah barang tiba dan tercatat posted"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. Bayar" },
-        { key: "bill_no", label: "No. Tagihan" },
-        { key: "vendor_name", label: "Vendor" },
-        { key: "amount", label: "Jumlah Dibayar", render: (r) => <span className="font-bold text-emerald-700">{fmtRp(r.amount)}</span>, numeric: true },
-        { key: "paid_on", label: "Tanggal Bayar", render: (r) => fmtDate(r.paid_on) },
-        { key: "fund_name", label: "Sumber Kas", render: (r) => r.fund_name || "Kas Umum" },
-        { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
-        { key: "creator_name", label: "Diproses Oleh" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Pembayaran Vendor ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Realisasi pelunasan hutang vendor hanya setelah barang tiba dan tercatat posted</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <VendorPaymentsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

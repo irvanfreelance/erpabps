@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { GoodsReceiptsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Penerimaan Barang (GRN)" };
 
@@ -29,22 +28,17 @@ export default async function GoodsReceiptsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Penerimaan Barang (Goods Receipt)"
-      subtitle="Barang tiba di gudang pusat dengan perhitungan HPP all-in termasuk alokasi ongkir"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. GRN" },
-        { key: "po_no", label: "No. PO" },
-        { key: "bin_name", label: "Gudang Masuk" },
-        { key: "goods_total", label: "Nilai Barang", render: (r) => fmtRp(r.goods_total), numeric: true },
-        { key: "freight_cost", label: "Ongkir Dialokasi", render: (r) => fmtRp(r.freight_cost), numeric: true },
-        { key: "all_in_total", label: "Total All-In HPP", render: (r) => <span className="font-bold text-emerald-700">{fmtRp(r.all_in_total)}</span>, numeric: true },
-        { key: "hpp_method", label: "Metode HPP", render: (r) => <span className="uppercase text-xs">{r.hpp_method}</span> },
-        { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
-        { key: "posted_at", label: "Waktu Penerimaan" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Penerimaan Barang (GRN) ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Barang tiba di gudang pusat dengan perhitungan HPP all-in termasuk alokasi ongkir</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <GoodsReceiptsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

@@ -72,8 +72,7 @@ BEGIN
         ('AYAM_UTUH', 'Ayam Utuh', v_cat_bahan_id, v_uom_kg_id, 'material', TRUE),
         ('BUMBU', 'Bumbu Racik', v_cat_bahan_id, v_uom_kg_id, 'material', TRUE),
         ('AYAM_UNGKEP', 'Ayam Ungkep', v_cat_olahan_id, v_uom_kg_id, 'semi_finished', TRUE)
-    ON CONFLICT (sku) DO UPDATE SET name = EXCLUDED.name, category_id = EXCLUDED.category_id, uom_id = EXCLUDED.uom_id
-    RETURNING id;
+    ON CONFLICT (sku) DO UPDATE SET name = EXCLUDED.name, category_id = EXCLUDED.category_id, uom_id = EXCLUDED.uom_id;
 
     SELECT id INTO v_item_ayam_id FROM stock_items WHERE sku = 'AYAM_UTUH';
     SELECT id INTO v_item_bumbu_id FROM stock_items WHERE sku = 'BUMBU';

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { PurchaseOrdersTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Pesanan Beli (PO)" };
@@ -28,20 +28,17 @@ export default async function PurchaseOrdersPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Pesanan Beli (Purchase Order)"
-      subtitle="Pesanan pembelian bahan baku ke vendor rekanan oleh tim Purchasing"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. PO" },
-        { key: "request_no", label: "Ref Request", render: (r) => r.request_no || "-" },
-        { key: "vendor_name", label: "Vendor" },
-        { key: "item_count", label: "Jumlah Item", numeric: true },
-        { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
-        { key: "creator_name", label: "Purchasing Staff" },
-        { key: "posted_at", label: "Waktu Posting" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Pesanan Beli (PO) ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Pesanan pembelian bahan baku ke vendor rekanan oleh tim Purchasing</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <PurchaseOrdersTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

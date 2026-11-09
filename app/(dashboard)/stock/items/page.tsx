@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockItemsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Katalog Barang" };
@@ -24,23 +24,17 @@ export default async function StockItemsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Katalog Barang & Bahan"
-      subtitle="Daftar master bahan mentah, barang setengah jadi olahan (ungkep), dan produk jadi"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "sku", label: "SKU / Kode" },
-        { key: "name", label: "Nama Barang" },
-        { key: "category_name", label: "Kategori" },
-        { key: "item_kind", label: "Jenis", render: (r) => (
-          <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold uppercase text-gray-700">
-            {r.item_kind}
-          </span>
-        )},
-        { key: "uom_code", label: "Satuan Ukur", render: (r) => `${r.uom_code} (${r.uom_name})` },
-        { key: "is_stocked", label: "Dicatat Stok", render: (r) => r.is_stocked ? "Ya" : "Tidak" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Katalog Barang & Bahan ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Daftar master bahan mentah, barang setengah jadi olahan (ungkep), dan produk jadi</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockItemsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockPartiesTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Vendor, Outlet & Katering" };
@@ -23,21 +23,17 @@ export default async function StockPartiesPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Master Pihak (Vendor, Outlet & Mitra)"
-      subtitle="Mitra bisnis: Vendor pembelian, Outlet Internal, Outlet Pihak Ketiga (sebagai customer), dan Katering"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "code", label: "Kode Mitra" },
-        { key: "name", label: "Nama Entitas / Rekanan" },
-        { key: "party_kind", label: "Jenis Mitra", render: (r) => (
-          <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-semibold uppercase text-gray-800">
-            {r.party_kind.replace(/_/g, " ")}
-          </span>
-        )},
-        { key: "location_name", label: "Lokasi Internal", render: (r) => r.location_name || "-" },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Vendor, Outlet & Mitra ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Mitra bisnis: Vendor pembelian, Outlet Internal, Outlet Pihak Ketiga (sebagai customer), dan Katering</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockPartiesTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

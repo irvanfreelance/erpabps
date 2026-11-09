@@ -12,7 +12,8 @@ export default async function Page() {
     redirect(`/employees/${session.user.employeeId}`);
   }
   const emp = await fromRoute<{ rows: never[] }>(await listEmployees());
-  const isSuperadmin = session?.user.role === "superadmin" || Boolean(session?.user.impersonatedBy);
+  // Tombol "Login As" hanya aktif jika pengguna saat ini murni sedang login sebagai superadmin (bukan saat sedang impersonate peran lain)
+  const isSuperadmin = session?.user.role === "superadmin" && !session?.user.impersonatedBy;
   return (
     <div>
       <h1 className="mb-3 mt-0 text-[20px] font-bold text-[var(--primary)] md:text-[24px]">Karyawan ({emp.rows.length})</h1>

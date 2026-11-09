@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { SalesInvoicesTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Faktur & Piutang" };
 
@@ -29,22 +28,17 @@ export default async function SalesInvoicesPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Faktur Penjualan & Piutang"
-      subtitle="Tagihan pusat ke outlet dan catering dengan harga bermargin di atas HPP kirim"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. Faktur" },
-        { key: "shipment_no", label: "No. Kirim" },
-        { key: "party_name", label: "Pembeli" },
-        { key: "party_kind", label: "Kanal", render: (r) => <span className="uppercase text-xs font-semibold">{r.party_kind}</span> },
-        { key: "omzet", label: "Nilai Tagihan (Omzet)", render: (r) => fmtRp(r.omzet), numeric: true },
-        { key: "cogs", label: "HPP Terkait", render: (r) => fmtRp(r.cogs), numeric: true },
-        { key: "laba", label: "Laba Kotor", render: (r) => <span className="font-bold text-emerald-700">{fmtRp(r.laba)}</span>, numeric: true },
-        { key: "margin_pct", label: "Margin", render: (r) => <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700">+{Number(r.margin_pct).toFixed(0)}%</span>, numeric: true },
-        { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Faktur Penjualan & Piutang ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Tagihan pusat ke outlet dan catering dengan harga bermargin di atas HPP kirim</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <SalesInvoicesTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

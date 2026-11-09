@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { GET as getStockReports } from "@/app/api/stock-reports/route";
-import { fromRoute } from "@/lib/api/from-route";
+import { internalRequest, fromRoute } from "@/lib/api/from-route";
+import { StockCharts } from "@/components/stock/stock-charts";
+import { StockDateFilter } from "@/components/stock/stock-date-filter";
 import {
   Boxes,
-  Truck,
   Factory,
   ShoppingCart,
   Wallet,
-  ArrowRight,
   TrendingUp,
   Receipt,
   CheckCircle2,
@@ -62,6 +62,22 @@ interface StockReportsData {
     totalPurchases: number;
     isBalanced: boolean;
   };
+  charts?: {
+    stockByBin: Array<{ label: string; total_value: number }>;
+    stockByCategory: Array<{ label: string; total_value: number }>;
+    channelPerformance: Array<{ channel_name: string; omzet: number; cogs: number; laba: number }>;
+    dailyMovements?: Array<{
+      date_label: string;
+      full_date: string;
+      belanja: number;
+      produksi: number;
+      penjualan_hpp: number;
+    }>;
+  };
+  filters?: {
+    startDate?: string | null;
+    endDate?: string | null;
+  };
 }
 
 function formatRupiah(val: number | string) {
@@ -80,10 +96,15 @@ function formatQty(val: number | string) {
   }).format(num || 0);
 }
 
-export default async function StockDashboardPage() {
+export default async function StockDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ start_date?: string; end_date?: string }>;
+}) {
   const session = await getServerSession();
   if (!session) redirect("/login");
-  if (session.user.role !== "superadmin") {
+  const isSuperadmin = session.user.role === "superadmin" || Boolean(session.user.impersonatedBy);
+  if (!isSuperadmin) {
     return (
       <div className="flex h-96 flex-col items-center justify-center text-center">
         <AlertCircle size={48} className="text-red-500 mb-3" />
@@ -95,10 +116,23 @@ export default async function StockDashboardPage() {
     );
   }
 
+  const resolvedParams = searchParams ? await searchParams : {};
+  const startDate = resolvedParams.start_date || "";
+  const endDate = resolvedParams.end_date || "";
+
   let data: StockReportsData | null = null;
   try {
-    const res = await getStockReports();
-    data = await fromRoute<StockReportsData>(res);
+    const query = new URLSearchParams();
+    if (startDate) query.set("start_date", startDate);
+    if (endDate) query.set("end_date", endDate);
+    const queryString = query.toString() ? `?${query.toString()}` : "";
+
+    const req = internalRequest(`/api/stock-reports${queryString}`);
+    const res = await getStockReports(req);
+    // fromRoute mengembalikan payload yang diserialkan oleh route
+    // API mengembalikan objek jsonSafe(payload) langsung (atau { data: payload })
+    const json = (await res.json()) as StockReportsData & { data?: StockReportsData };
+    data = json.data ?? json;
   } catch (err) {
     console.error("Gagal memuat laporan stok:", err);
   }
@@ -108,16 +142,21 @@ export default async function StockDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <Boxes className="text-[var(--primary)]" size={24} />
-          <h1 className="text-xl font-bold text-gray-900">Modul Stok, Produksi & HPP</h1>
+      {/* Header & Date Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Boxes className="text-[var(--primary)]" size={24} />
+            <h1 className="text-xl font-bold text-gray-900 md:text-2xl">Dasbor & Laporan Stok HPP</h1>
+          </div>
+          <p className="text-xs text-gray-500">
+            Siklus terpadu dapur pusat: Belanja Vendor → Kas Dapur → Produksi Ungkep → Penjualan Bermargin Outlet & Catering
+          </p>
         </div>
-        <p className="text-xs text-gray-500">
-          Siklus terpadu dapur pusat: Belanja Vendor → Kas Dapur → Produksi Ungkep → Penjualan Bermargin Outlet & Catering
-        </p>
       </div>
+
+      {/* Date Range Filter Toolbar */}
+      <StockDateFilter initialStartDate={startDate} initialEndDate={endDate} />
 
       {/* Ringkasan Rekonsiliasi Siklus (Kesesuaian Angka) */}
       {rec && (
@@ -217,6 +256,9 @@ export default async function StockDashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* Visualisasi Statistik Chart Lengkap Modul Stok */}
+      {data?.charts && <StockCharts data={data.charts} />}
 
       {/* Grid: Saldo Stok & Rekap Penjualan */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -324,4 +366,3 @@ export default async function StockDashboardPage() {
     </div>
   );
 }
-

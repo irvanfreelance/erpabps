@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { VendorBillsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtDate, fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Hutang Vendor" };
 
@@ -26,24 +25,17 @@ export default async function VendorBillsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Hutang Vendor (Vendor Bills)"
-      subtitle="Kewajiban bayar vendor yang terbentuk otomatis setelah penerimaan barang (posted)"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "doc_no", label: "No. Tagihan" },
-        { key: "grn_no", label: "Ref GRN" },
-        { key: "vendor_name", label: "Nama Vendor" },
-        { key: "amount", label: "Total Tagihan", render: (r) => fmtRp(r.amount), numeric: true },
-        { key: "amount_open", label: "Sisa Hutang", render: (r) => <span className={Number(r.amount_open) > 0 ? "font-bold text-red-600" : "text-emerald-700 font-semibold"}>{fmtRp(r.amount_open)}</span>, numeric: true },
-        { key: "due_date", label: "Jatuh Tempo", render: (r) => fmtDate(r.due_date) },
-        { key: "status", label: "Status", render: (r) => (
-          <span className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${r.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-            {r.status === 'paid' ? 'Lunas' : 'Belum Lunas'}
-          </span>
-        )},
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Hutang Vendor (Vendor Bills) ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Kewajiban bayar vendor yang terbentuk otomatis setelah penerimaan barang (posted)</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <VendorBillsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

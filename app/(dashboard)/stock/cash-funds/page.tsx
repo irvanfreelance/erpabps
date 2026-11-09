@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { CashFundsTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Kas Dapur & Operasional" };
 
@@ -26,19 +25,17 @@ export default async function CashFundsPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Kas Operasional & Dapur"
-      subtitle="Pencatatan uang muka operasional dapur beserta realisasi belanja dan sisa saldo"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "code", label: "Kode Kas" },
-        { key: "name", label: "Nama Buku Kas" },
-        { key: "total_topup", label: "Total Uang Masuk", render: (r) => fmtRp(r.total_topup), numeric: true },
-        { key: "total_spend", label: "Total Realisasi Belanja", render: (r) => fmtRp(r.total_spend), numeric: true },
-        { key: "balance", label: "Sisa Saldo Kas", render: (r) => <span className="font-bold text-emerald-800 text-sm">{fmtRp(r.balance)}</span>, numeric: true },
-        { key: "total_entries", label: "Jumlah Transaksi", numeric: true },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Kas Operasional & Dapur ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Pencatatan uang muka operasional dapur beserta realisasi belanja dan sisa saldo</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <CashFundsTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 

@@ -12,7 +12,6 @@ const RA: Action[] = ["read", "approve"];
 const byRole: Record<Role, Record<string, Action[]>> = {
   superadmin: {},
   superordinat: {
-    dashboard: ALL_READ,
     "attendances.clock": RCU,
     attendances: ALL_READ,
     schedules: RCU,
@@ -26,7 +25,6 @@ const byRole: Record<Role, Record<string, Action[]>> = {
     app_config: ALL_READ,
   },
   subordinat: {
-    dashboard: ALL_READ,
     "attendances.clock": RCU,
     attendances: ALL_READ,
     schedules: ALL_READ,

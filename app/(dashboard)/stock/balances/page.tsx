@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
-import { StockTablePage } from "@/components/stock/stock-table-page";
+import { StockBalancesTable } from "@/components/stock/stock-tables";
 import { jsonSafe } from "@/lib/utils/serialize";
-import { fmtRp } from "@/lib/utils/format";
 
 export const metadata = { title: "Saldo Persediaan" };
 
@@ -27,19 +26,17 @@ export default async function StockBalancesPage() {
   `;
 
   return (
-    <StockTablePage
-      title="Saldo Stok & Nilai Persediaan"
-      subtitle="Kuantitas fisik dan nilai total HPP persediaan berjalan di gudang dan freezer"
-      rows={jsonSafe(rows)}
-      columns={[
-        { key: "sku", label: "SKU" },
-        { key: "item_name", label: "Nama Barang" },
-        { key: "bin_name", label: "Lokasi Simpan (Bin)" },
-        { key: "qty", label: "Kuantitas Saldo", render: (r) => `${Number(r.qty)} ${r.uom_code}`, numeric: true },
-        { key: "unit_cost", label: "HPP Satuan", render: (r) => fmtRp(r.unit_cost), numeric: true },
-        { key: "value", label: "Total Nilai Persediaan", render: (r) => <span className="font-bold text-emerald-800">{fmtRp(r.value)}</span>, numeric: true },
-      ]}
-    />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[18px] font-bold text-[var(--primary)] md:text-[22px]">
+          Saldo Persediaan & Nilai ({jsonSafe(rows).length})
+        </h1>
+        <p className="text-xs text-gray-500 m-0">Kuantitas fisik dan nilai total HPP persediaan berjalan di gudang dan freezer</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <StockBalancesTable rows={jsonSafe(rows) as never} />
+      </div>
+    </div>
   );
 }
 
