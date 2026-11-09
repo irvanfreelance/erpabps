@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, X, ArrowLeftRight, Clock } from "lucide-react";
+import { Check, X, ArrowLeftRight, Clock, Plus } from "lucide-react";
 import { SearchSelect } from "@/components/shared/search-select";
 import { DataTable, type Column } from "@/components/data-table/data-table";
-import { btnPrimary } from "@/components/ui/button";
+import { Modal } from "@/components/hrd/modal";
+import { btnPrimary, btnSecondary } from "@/components/ui/button";
 
 export type ShiftSwapRow = {
   id: string;
@@ -33,6 +34,7 @@ export function ShiftSwapsManager({
   canApprove?: boolean;
 }) {
   const router = useRouter();
+  const [openModal, setOpenModal] = useState(false);
   const [targetEmployeeId, setTargetEmployeeId] = useState("");
   const [swapDate, setSwapDate] = useState("");
   const [reason, setReason] = useState("");
@@ -69,6 +71,8 @@ export function ShiftSwapsManager({
       }
 
       toast.success("Pengajuan tukar shift berhasil dikirim ke atasan!");
+      setOpenModal(false);
+      setSwapDate("");
       setReason("");
       router.refresh();
     } catch {
@@ -187,55 +191,81 @@ export function ShiftSwapsManager({
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Form Pengajuan Tukar Shift */}
-      <form onSubmit={handleApply} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm max-w-xl space-y-4">
-        <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-[16px]">
-          <ArrowLeftRight className="h-5 w-5" />
-          <span>Form Pengajuan Tukar Shift</span>
-        </div>
-
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-700 mb-1">Rekan Tujuan Tukar Shift</label>
-          <SearchSelect
-            value={targetEmployeeId}
-            onChange={(v) => setTargetEmployeeId(v)}
-            options={employees.map((e) => ({ value: e.id, label: e.name }))}
-            placeholder="Pilih nama rekan satu tim/outlet..."
-          />
-        </div>
-
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-700 mb-1">Tanggal Shift yang Ditukar</label>
-          <input
-            type="date"
-            className="w-full min-h-11 rounded-xl border border-gray-300 px-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
-            value={swapDate}
-            onChange={(e) => setSwapDate(e.target.value)}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-700 mb-1">Alasan Pertukaran Shift</label>
-          <textarea
-            rows={2}
-            placeholder="Contoh: Ada keperluan mendadak keluarga di pagi hari, sudah koordinasi dengan yang bersangkutan..."
-            className="w-full rounded-xl border border-gray-300 p-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            required
-          />
-        </div>
-
-        <button type="submit" className={btnPrimary} disabled={submitting}>
-          {submitting ? "Mengirim..." : "Kirim Pengajuan Tukar Shift"}
+    <div className="space-y-4">
+      {/* Header bar & Tombol Modal Pengajuan Tukar Shift */}
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] text-gray-500">
+          Karyawan dapat mengajukan tukar shift dengan rekan satu outlet. Atasan dan HR Superadmin dapat menyetujui atau menolak.
+        </p>
+        <button
+          type="button"
+          onClick={() => setOpenModal(true)}
+          className={btnPrimary}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Ajukan Tukar Shift
         </button>
-      </form>
+      </div>
+
+      {/* Modal Popup Pengajuan Tukar Shift */}
+      {openModal && (
+        <Modal
+          title="Form Pengajuan Tukar Shift"
+          onClose={() => setOpenModal(false)}
+        >
+          <form onSubmit={handleApply} className="space-y-4 text-[13px]">
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-700 mb-1">Rekan Tujuan Tukar Shift</label>
+              <SearchSelect
+                value={targetEmployeeId}
+                onChange={(v) => setTargetEmployeeId(v)}
+                options={employees.map((e) => ({ value: e.id, label: e.name }))}
+                placeholder="Pilih nama rekan satu tim/outlet..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-700 mb-1">Tanggal Shift yang Ditukar</label>
+              <input
+                type="date"
+                className="w-full min-h-11 rounded-xl border border-gray-300 px-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
+                value={swapDate}
+                onChange={(e) => setSwapDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-700 mb-1">Alasan Pertukaran Shift</label>
+              <textarea
+                rows={2}
+                placeholder="Contoh: Ada keperluan mendadak keluarga di pagi hari, sudah koordinasi dengan yang bersangkutan..."
+                className="w-full rounded-xl border border-gray-300 p-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                className={btnSecondary}
+                onClick={() => setOpenModal(false)}
+              >
+                Batal
+              </button>
+              <button type="submit" className={btnPrimary} disabled={submitting}>
+                {submitting ? "Mengirim..." : "Kirim Pengajuan"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Tabel Riwayat Pengajuan */}
       <div>
-        <h2 className="mb-2 text-[16px] font-bold text-gray-900">Riwayat Pengajuan Tukar Shift</h2>
+        <h2 className="mb-2 text-[15px] font-bold text-gray-900">Riwayat Pengajuan Tukar Shift</h2>
         <DataTable data={rows} columns={columns} exportFilename={`Tukar_Shift_${new Date().toISOString().slice(0, 10)}`} />
       </div>
     </div>

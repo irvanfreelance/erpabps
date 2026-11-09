@@ -15,7 +15,7 @@ const byRole: Record<Role, Record<string, Action[]>> = {
     dashboard: ALL_READ,
     "attendances.clock": RCU,
     attendances: ALL_READ,
-    schedules: ALL_READ,
+    schedules: RCU,
     "shift-swaps": RCUA,
     leaves: RCUA,
     overtimes: RCUA,

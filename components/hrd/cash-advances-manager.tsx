@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Wallet, Check, X, Edit3 } from "lucide-react";
+import { Wallet, Check, X, Edit3, Plus } from "lucide-react";
 import { DataTable, type Column } from "@/components/data-table/data-table";
-import { btnPrimary } from "@/components/ui/button";
+import { Modal } from "@/components/hrd/modal";
+import { btnPrimary, btnSecondary } from "@/components/ui/button";
 import { fmtRp } from "@/lib/utils/format";
 
 export type CashAdvanceRow = {
@@ -35,6 +36,7 @@ export function CashAdvancesManager({
   canScreen?: boolean;
 }) {
   const router = useRouter();
+  const [openModal, setOpenModal] = useState(false);
   const [amount, setAmount] = useState("");
   const [installmentCount, setInstallmentCount] = useState("1");
   const [notes, setNotes] = useState("");
@@ -83,6 +85,7 @@ export function CashAdvancesManager({
       }
 
       toast.success("Pengajuan kasbon berhasil dikirim ke Superadmin HR!");
+      setOpenModal(false);
       setAmount("");
       setInstallmentCount("1");
       setNotes("");
@@ -277,76 +280,104 @@ export function CashAdvancesManager({
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Form Pengajuan Kasbon (Atasan & Bawahan Sama-sama Mengajukan ke Superadmin HR) */}
-      <form onSubmit={handleApply} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm max-w-xl space-y-4">
-        <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-[16px]">
-          <Wallet className="h-5 w-5" />
-          <span>Form Pengajuan Kasbon</span>
-        </div>
-
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-700 mb-1">Nominal Kasbon (Rp)</label>
-          <input
-            type="number"
-            min="10000"
-            step="1000"
-            placeholder="Contoh: 1000000"
-            className="w-full min-h-11 rounded-xl border border-gray-300 px-3 text-[14px] font-semibold focus:outline-none focus:border-[var(--primary)]"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-700 mb-1">
-            Dipotong Dalam Berapa Kali Gajian? (Bulan)
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="24"
-            className="w-full min-h-11 rounded-xl border border-gray-300 px-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
-            value={installmentCount}
-            onChange={(e) => setInstallmentCount(e.target.value)}
-            required
-          />
-          {estPerMonth > 0 && (
-            <p className="mt-1 text-[12px] text-gray-500">
-              Estimasi potongan: <span className="font-semibold text-gray-800">{fmtRp(estPerMonth)}</span> per bulan gajian.
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-700 mb-1">Keperluan / Catatan</label>
-          <textarea
-            rows={2}
-            placeholder="Contoh: Keperluan perbaikan motor, kebutuhan keluarga..."
-            className="w-full rounded-xl border border-gray-300 p-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-
-        <button type="submit" className={btnPrimary} disabled={submitting}>
-          {submitting ? "Mengirim..." : "Kirim Pengajuan Kasbon"}
+    <div className="space-y-4">
+      {/* Header bar & Tombol Modal Pengajuan Kasbon */}
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] text-gray-500">
+          Karyawan dapat mengajukan kasbon mandiri. Persetujuan dan screening dilakukan langsung oleh HR Superadmin.
+        </p>
+        <button
+          type="button"
+          onClick={() => setOpenModal(true)}
+          className={btnPrimary}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Ajukan Kasbon Baru
         </button>
-      </form>
+      </div>
+
+      {/* Modal Popup Pengajuan Kasbon */}
+      {openModal && (
+        <Modal
+          title="Form Pengajuan Kasbon Baru"
+          onClose={() => setOpenModal(false)}
+        >
+          <form onSubmit={handleApply} className="space-y-4 text-[13px]">
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-700 mb-1">Nominal Kasbon (Rp)</label>
+              <input
+                type="number"
+                min="10000"
+                step="1000"
+                placeholder="Contoh: 1000000"
+                className="w-full min-h-11 rounded-xl border border-gray-300 px-3 text-[14px] font-semibold focus:outline-none focus:border-[var(--primary)]"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+                Dipotong Dalam Berapa Kali Gajian? (Bulan)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                className="w-full min-h-11 rounded-xl border border-gray-300 px-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
+                value={installmentCount}
+                onChange={(e) => setInstallmentCount(e.target.value)}
+                required
+              />
+              {estPerMonth > 0 && (
+                <p className="mt-1 text-[12px] text-gray-500">
+                  Estimasi potongan: <span className="font-semibold text-gray-800">{fmtRp(estPerMonth)}</span> per bulan gajian.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[12px] font-semibold text-gray-700 mb-1">Keperluan / Catatan</label>
+              <textarea
+                rows={2}
+                placeholder="Contoh: Keperluan perbaikan motor, kebutuhan keluarga..."
+                className="w-full rounded-xl border border-gray-300 p-3 text-[13px] focus:outline-none focus:border-[var(--primary)]"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                className={btnSecondary}
+                onClick={() => setOpenModal(false)}
+              >
+                Batal
+              </button>
+              <button type="submit" className={btnPrimary} disabled={submitting}>
+                {submitting ? "Mengirim..." : "Kirim Pengajuan Kasbon"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {/* Tabel Riwayat Pengajuan Kasbon */}
       <div>
-        <h2 className="mb-2 text-[16px] font-bold text-gray-900">Daftar Pengajuan & Cicilan Kasbon</h2>
+        <h2 className="mb-2 text-[15px] font-bold text-gray-900">Daftar Pengajuan & Cicilan Kasbon</h2>
         <DataTable data={rows} columns={columns} exportFilename={`Kasbon_${new Date().toISOString().slice(0, 10)}`} />
       </div>
 
       {/* Modal Override Potongan Gajian oleh HR Superadmin */}
       {editingRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-[16px] font-bold text-gray-900">Sesuaikan Potongan Gajian</h3>
-            <p className="mt-1 text-[13px] text-gray-500">
+        <Modal
+          title="Sesuaikan Potongan Gajian"
+          onClose={() => setEditingRow(null)}
+        >
+          <div className="space-y-3 text-[13px]">
+            <p className="text-gray-500">
               Karyawan: <span className="font-semibold text-gray-800">{editingRow.full_name}</span>
             </p>
             <p className="text-[12px] text-gray-500">
@@ -373,25 +404,25 @@ export function CashAdvancesManager({
                 </span>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setEditingRow(null)}
-                  className="flex-1 rounded-xl bg-gray-100 py-2 text-[13px] font-semibold text-gray-700 hover:bg-gray-200"
+                  className={btnSecondary}
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={savingOverride}
-                  className="flex-1 rounded-xl bg-[var(--primary)] py-2 text-[13px] font-semibold text-white shadow-sm hover:opacity-95"
+                  className={btnPrimary}
                 >
                   {savingOverride ? "Menyimpan..." : "Simpan Override"}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

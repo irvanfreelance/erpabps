@@ -194,16 +194,16 @@ export function RunManager({
       )}
 
       {/* Item List Table */}
-      <div className="overflow-x-auto rounded border border-gray-200 bg-white">
+      <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm">
         <table className="w-full text-left text-[13px]">
-          <thead className="border-b bg-gray-50 text-[12px] font-semibold text-gray-700">
+          <thead className="border-b bg-[var(--primary)] text-[12px] font-semibold text-white">
             <tr>
               <th className="px-3 py-2.5">Karyawan</th>
               <th className="px-3 py-2.5 text-right">Menit Hadir</th>
               <th className="px-3 py-2.5 text-right">Menit Telat</th>
               <th className="px-3 py-2.5 text-right">Penghasilan</th>
               <th className="px-3 py-2.5 text-right">Potongan</th>
-              <th className="px-3 py-2.5 text-right font-bold text-[var(--primary)]">Gaji Netto</th>
+              <th className="px-3 py-2.5 text-right font-bold text-white">Gaji Netto</th>
               <th className="px-3 py-2.5 text-center">Pemeriksaan / Override</th>
             </tr>
           </thead>

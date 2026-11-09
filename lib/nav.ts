@@ -12,10 +12,9 @@ export type NavGroup = {
 };
 
 const SA: Role[] = ["superadmin"];
-const SA_SO: Role[] = ["superadmin", "superordinat"];
 const ALL: Role[] = ["superadmin", "superordinat", "subordinat"];
 
-export const NAV: NavGroup[] = [
+export const NAV_HR: NavGroup[] = [
   {
     group: "Aktivitas Utama",
     items: [
@@ -66,11 +65,71 @@ export const NAV: NavGroup[] = [
   },
 ];
 
-export function navForRole(role: Role): NavGroup[] {
-  return NAV.map((g) => ({
-    ...g,
-    items: g.items.filter((it) => it.roles.includes(role)),
-  })).filter((g) => g.items.length > 0);
+export const NAV_STOCK: NavGroup[] = [
+  {
+    group: "Pembelian & Kas",
+    items: [
+      { href: "/stock/purchase-requests", label: "Permintaan Belanja", roles: SA },
+      { href: "/stock/purchase-orders", label: "Pesanan Beli (PO)", roles: SA },
+      { href: "/stock/goods-receipts", label: "Penerimaan Barang (GRN)", roles: SA },
+      { href: "/stock/vendor-bills", label: "Hutang Vendor", roles: SA },
+      { href: "/stock/vendor-payments", label: "Pembayaran Vendor", roles: SA },
+      { href: "/stock/cash-funds", label: "Kas Dapur & Operasional", roles: SA },
+    ],
+  },
+  {
+    group: "Produksi & Pengolahan",
+    items: [
+      { href: "/stock/production-orders", label: "Perintah Produksi (Ungkep)", roles: SA },
+      { href: "/stock/boms", label: "Resep & Komposisi (BOM)", roles: SA },
+    ],
+  },
+  {
+    group: "Penjualan & Distribusi",
+    items: [
+      { href: "/stock/sales-orders", label: "Order Penjualan (SO)", roles: SA },
+      { href: "/stock/shipments", label: "Pengiriman (Surat Jalan)", roles: SA },
+      { href: "/stock/sales-invoices", label: "Faktur & Piutang", roles: SA },
+      { href: "/stock/price-lists", label: "Daftar Harga & Margin", roles: SA },
+    ],
+  },
+  {
+    group: "Inventori & Opname",
+    items: [
+      { href: "/stock/balances", label: "Saldo Stok & Nilai", roles: SA },
+      { href: "/stock/moves", label: "Kartu Stok (Mutasi)", roles: SA },
+      { href: "/stock/counts", label: "Stock Opname", roles: SA },
+      { href: "/stock/reversals", label: "Koreksi / Pembalik", roles: SA },
+    ],
+  },
+  {
+    group: "Master & Mitra Stok",
+    items: [
+      { href: "/stock/items", label: "Katalog Barang", roles: SA },
+      { href: "/stock/bins", label: "Bin Gudang & Freezer", roles: SA },
+      { href: "/stock/parties", label: "Vendor, Outlet & Katering", roles: SA },
+      { href: "/stock/categories", label: "Kategori Barang", roles: SA },
+      { href: "/stock/uoms", label: "Satuan Ukur (UoM)", roles: SA },
+    ],
+  },
+  {
+    group: "Laporan Stok & HPP",
+    items: [
+      { href: "/stock/reports", label: "Laporan Terpadu HPP & Laba", roles: SA },
+    ],
+  },
+];
+
+export const NAV = NAV_HR;
+
+export function navForRole(role: Role, module: "hr" | "stock" = "hr"): NavGroup[] {
+  const target = module === "stock" ? NAV_STOCK : NAV_HR;
+  return target
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((it) => it.roles.includes(role)),
+    }))
+    .filter((g) => g.items.length > 0);
 }
 
 export const DEFAULT_ORG = {

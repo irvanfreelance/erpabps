@@ -19,7 +19,19 @@ export async function GET() {
   const g = await guard("cash-advances", "read");
   if (g.error) return g.error;
   const sql = getDb();
-  const ids = await visibleEmployeeIds(sql, g.session!.user);
+  const user = g.session!.user;
+
+  // Aturan kasbon:
+  // Subordinat & Superordinat hanya melihat kasbon miliknya sendiri (karena approval kasbon langsung di HR Superadmin).
+  // Superadmin melihat seluruh pengajuan kasbon.
+  let targetEmpId: string | null = null;
+  if (user.role !== "superadmin") {
+    targetEmpId = user.employeeId ?? (await ownEmployeeId(sql, user));
+    if (!targetEmpId) {
+      return NextResponse.json(jsonSafe({ rows: [], userRole: user.role }));
+    }
+  }
+
   const rows = await sql`
     SELECT c.id, c.employee_id, c.amount, c.installment_count, c.installment_amount,
            c.override_installment_amount,
@@ -30,7 +42,7 @@ export async function GET() {
     FROM cash_advances c
     JOIN employees e ON e.id = c.employee_id
     LEFT JOIN users u ON u.id = c.screened_by
-    WHERE ${ids}::bigint[] IS NULL OR c.employee_id = ANY(${ids}::bigint[])
+    WHERE (${targetEmpId}::bigint IS NULL OR c.employee_id = ${targetEmpId}::bigint)
     ORDER BY c.requested_at DESC
   `;
   return NextResponse.json(jsonSafe({ rows, userRole: g.session!.user.role }));

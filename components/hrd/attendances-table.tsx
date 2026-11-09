@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Filter, RotateCcw, Search } from "lucide-react";
+import { Download, Filter, RotateCcw, Search, Upload } from "lucide-react";
 import { DataTable, type Column } from "@/components/data-table/data-table";
 import { downloadXlsx } from "@/lib/utils/export-xlsx";
 import { btnPrimary, btnSecondary } from "@/components/ui/button";
+import { FingerprintImportModal } from "@/components/hrd/fingerprint-import-modal";
 
 export type AttendanceItem = {
   id: string;
@@ -48,6 +49,7 @@ export function AttendancesTable({
   const [filterLate, setFilterLate] = useState("");
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [openFingerprintModal, setOpenFingerprintModal] = useState(false);
 
   // Client-side filtering across fields
   const filteredData = useMemo(() => {
@@ -246,6 +248,14 @@ export function AttendancesTable({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setOpenFingerprintModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-600 bg-white px-3 py-2 text-[13px] font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 transition-all"
+          >
+            <Upload className="h-4 w-4" />
+            <span>Import Fingerprint</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className={`${btnSecondary} flex items-center gap-1.5`}
           >
@@ -361,6 +371,12 @@ export function AttendancesTable({
         data={filteredData}
         columns={columns}
         exportFilename={`Rekap_Kehadiran_${new Date().toISOString().slice(0, 10)}`}
+      />
+
+      {/* Modal Import Fingerprint */}
+      <FingerprintImportModal
+        open={openFingerprintModal}
+        onClose={() => setOpenFingerprintModal(false)}
       />
     </div>
   );
