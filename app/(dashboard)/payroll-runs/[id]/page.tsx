@@ -1,31 +1,35 @@
 import { GET as getRun } from "@/app/api/payroll-runs/[id]/route";
-import { RunActions } from "@/components/hrd/run-actions";
-import { DataTable } from "@/components/data-table/data-table";
+import { RunManager, RunItem } from "@/components/hrd/run-manager";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
+import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Detail run — ABPS" };
+export const metadata = { title: "Detail Payroll Run — ABPS" };
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const session = await getServerSession();
+  const isSuperadmin = session?.user.role === "superadmin";
+
   const data = await fromRoute<{
     run: { id: string; status: string; period_start: string; period_end: string; pay_group_name: string };
-    items: { id: string; full_name: string; payable_minutes: number; late_minutes: number; net_pay: string }[];
+    items: RunItem[];
   }>(await getRun(internalRequest(`/api/payroll-runs/${id}`), { params: Promise.resolve({ id }) }));
+
   return (
-    <div>
-      <h1 className="mb-1 mt-0 text-[20px] font-bold text-[var(--primary)]">{data.run.pay_group_name}</h1>
-      <p className="mb-3 text-[13px] text-[#666]">
-        {data.run.period_start} — {data.run.period_end} · {data.run.status}
-      </p>
-      <RunActions id={id} status={data.run.status} />
-      <DataTable
-        data={data.items}
-        columns={[
-          { key: "full_name", label: "Nama" },
-          { key: "payable_minutes", label: "Menit", numeric: true },
-          { key: "late_minutes", label: "Telat", numeric: true },
-          { key: "net_pay", label: "Netto", money: true },
-        ]}
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-[20px] font-bold text-[var(--primary)]">{data.run.pay_group_name}</h1>
+        <p className="text-[13px] text-gray-600">
+          Periode: {data.run.period_start} s/d {data.run.period_end} · Status:{" "}
+          <strong className="uppercase">{data.run.status}</strong>
+        </p>
+      </div>
+
+      <RunManager
+        runId={id}
+        status={data.run.status}
+        items={data.items}
+        isSuperadmin={isSuperadmin}
       />
     </div>
   );

@@ -17,88 +17,51 @@ const ALL: Role[] = ["superadmin", "superordinat", "subordinat"];
 
 export const NAV: NavGroup[] = [
   {
-    group: "Overview",
+    group: "Aktivitas Utama",
     items: [
-      { href: "/dashboard", label: "Dasbor", roles: ALL },
       { href: "/employees", label: "Karyawan", roles: ALL },
+      { href: "/attendances/clock", label: "Clock In / Pulang", roles: ALL },
+      { href: "/attendances", label: "Rekap Kehadiran", roles: ALL },
+      { href: "/schedules", label: "Kalender Shift", roles: ALL },
+      { href: "/payslips", label: "List Gaji", roles: ALL },
     ],
   },
   {
-    group: "Presensi",
+    group: "Pengajuan",
     items: [
-      { href: "/attendances/clock", label: "Clock-in", roles: ALL },
-      { href: "/attendances", label: "Rekap", roles: ALL },
-      { href: "/attendances/backdate", label: "Backdate", roles: SA },
+      { href: "/overtimes", label: "Pengajuan Lembur", roles: ALL },
+      { href: "/leaves", label: "Pengajuan Cuti / Izin / Off", roles: ALL },
+      { href: "/shift-swaps", label: "Pengajuan Tukar Shift", roles: ALL },
+      { href: "/cash-advances", label: "Pengajuan Kasbon", roles: ALL },
     ],
   },
   {
-    group: "Jadwal",
+    group: "Manajemen HR (Admin)",
     items: [
-      { href: "/schedules", label: "Kalender", roles: ALL },
-      { href: "/shift-templates", label: "Template", roles: SA_SO },
-      { href: "/shift-swaps", label: "Tukar shift", roles: ALL },
+      { href: "/payroll-runs", label: "Run Payroll", roles: SA },
+      { href: "/bonus/monthly", label: "Bonus Bulanan", roles: SA },
+      { href: "/cash-advances/screening", label: "Screening Kasbon", roles: SA },
+      { href: "/attendances/backdate", label: "Entry Presensi Backdate", roles: SA },
+      { href: "/shift-templates", label: "Template Shift", roles: SA },
+      { href: "/reports/attendance", label: "Laporan Kehadiran", roles: SA },
+      { href: "/reports/payroll", label: "Laporan Payroll", roles: SA },
     ],
   },
   {
-    group: "Payroll",
+    group: "Master & Konfigurasi (Admin)",
     items: [
-      { href: "/payroll-runs", label: "Run", roles: SA_SO },
-      { href: "/payslips", label: "Slip", roles: ALL },
-    ],
-  },
-  {
-    group: "Kasbon",
-    items: [
-      { href: "/cash-advances", label: "Pengajuan", roles: ALL },
-      { href: "/cash-advances/screening", label: "Screening", roles: SA },
-    ],
-  },
-  {
-    group: "Bonus",
-    items: [
-      { href: "/bonus/outlet-revenues", label: "Omset outlet", roles: SA },
-      { href: "/bonus/monthly", label: "Bonus bulanan", roles: ALL },
-    ],
-  },
-  {
-    group: "Kontrak",
-    items: [
-      { href: "/contract-stages", label: "Katalog tahap", roles: SA_SO },
-      { href: "/contracts", label: "Kontrak orang", roles: ALL },
-    ],
-  },
-  {
-    group: "Laporan",
-    items: [
-      { href: "/reports/attendance", label: "Kehadiran", roles: ALL },
-      { href: "/reports/payroll", label: "Payroll", roles: ALL },
-    ],
-  },
-  {
-    group: "Master",
-    items: [
-      { href: "/master/locations", label: "Lokasi", roles: SA_SO },
-      { href: "/master/positions", label: "Jabatan", roles: SA_SO },
-      { href: "/master/ranks", label: "Pangkat", roles: SA_SO },
-      { href: "/master/employee-types", label: "Jenis karyawan", roles: SA_SO },
-      { href: "/master/pay-groups", label: "Kelompok gaji", roles: SA_SO },
-      { href: "/master/salary-components", label: "Komponen", roles: SA_SO },
-      { href: "/master/holidays", label: "Hari libur", roles: SA_SO },
-    ],
-  },
-  {
-    group: "Pengaturan",
-    items: [
-      { href: "/settings", label: "Lembaga", roles: SA },
-      { href: "/settings/rules", label: "Aturan", roles: SA },
-      { href: "/users", label: "Pengguna", roles: SA },
-    ],
-  },
-  {
-    group: "Persetujuan",
-    items: [
-      { href: "/approvals", label: "Kotak", roles: ALL },
-      { href: "/approvals/policies", label: "Kebijakan", roles: SA },
+      { href: "/master/locations", label: "Lokasi", roles: SA },
+      { href: "/master/positions", label: "Jabatan", roles: SA },
+      { href: "/master/ranks", label: "Pangkat", roles: SA },
+      { href: "/master/employee-types", label: "Jenis Karyawan", roles: SA },
+      { href: "/master/pay-groups", label: "Kelompok Gaji", roles: SA },
+      { href: "/master/salary-components", label: "Komponen Gaji", roles: SA },
+      { href: "/master/holidays", label: "Hari Libur", roles: SA },
+      { href: "/contract-stages", label: "Katalog Kontrak", roles: SA },
+      { href: "/contracts", label: "Kontrak Karyawan", roles: SA },
+      { href: "/settings", label: "Profil Lembaga", roles: SA },
+      { href: "/settings/rules", label: "Aturan & Kebijakan", roles: SA },
+      { href: "/users", label: "Pengguna & Akun", roles: SA },
     ],
   },
 ];

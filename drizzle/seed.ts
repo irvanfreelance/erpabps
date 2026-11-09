@@ -250,6 +250,40 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
       [code, name, sort],
     );
   }
+
+  // Seed Hari Libur Nasional & Tanggal Merah Indonesia Des 2026 - Des 2027
+  const holidays: [string, string, boolean][] = [
+    ["2026-12-25", "Hari Raya Natal", false],
+    ["2026-12-26", "Cuti Bersama Hari Raya Natal", false],
+    ["2027-01-01", "Tahun Baru 2027 Masehi", false],
+    ["2027-01-20", "Isra Mikraj Nabi Muhammad SAW", false],
+    ["2027-02-06", "Tahun Baru Imlek 2578 Kongzili", false],
+    ["2027-03-08", "Hari Suci Nyepi (Tahun Baru Saka 1949)", false],
+    ["2027-03-09", "Hari Raya Idul Fitri 1448 H (Hari 1)", false],
+    ["2027-03-10", "Hari Raya Idul Fitri 1448 H (Hari 2)", false],
+    ["2027-03-11", "Cuti Bersama Hari Raya Idul Fitri 1448 H", false],
+    ["2027-03-12", "Cuti Bersama Hari Raya Idul Fitri 1448 H", false],
+    ["2027-03-26", "Wafat Yesus Kristus (Jumat Agung)", false],
+    ["2027-03-28", "Kebangkitan Yesus Kristus (Paskah)", true],
+    ["2027-05-01", "Hari Buruh Internasional", false],
+    ["2027-05-06", "Kenaikan Yesus Kristus", false],
+    ["2027-05-16", "Hari Raya Idul Adha 1448 H", true],
+    ["2027-05-20", "Hari Raya Waisak 2571 BE", false],
+    ["2027-06-01", "Hari Lahir Pancasila", false],
+    ["2027-06-06", "Tahun Baru Islam 1449 Hijriah", true],
+    ["2027-08-15", "Maulid Nabi Muhammad SAW", true],
+    ["2027-08-17", "Hari Kemerdekaan Republik Indonesia ke-82", false],
+    ["2027-12-25", "Hari Raya Natal", false],
+    ["2027-12-26", "Cuti Bersama Hari Raya Natal", true],
+  ];
+  for (const [date, hName, isSun] of holidays) {
+    await sql.query(
+      `INSERT INTO holidays (holiday_date, name, is_sunday)
+       VALUES ($1::date, $2, $3)
+       ON CONFLICT (holiday_date) DO UPDATE SET name = EXCLUDED.name, is_sunday = EXCLUDED.is_sunday`,
+      [date, hName, isSun],
+    );
+  }
   await sql.query(
     `INSERT INTO setting_definitions (key, category, label, value_type, default_value, allowed_scopes, is_locked)
      VALUES ('contract.remind_days', 'contract', 'Hari pengingat akhir kontrak', 'integer', '{"v":30}', '{org}', FALSE)

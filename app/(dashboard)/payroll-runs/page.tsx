@@ -1,31 +1,26 @@
 import { GET as list } from "@/app/api/payroll-runs/route";
 import { GET as groups } from "@/app/api/pay-groups/route";
-import { SimpleCreate } from "@/components/hrd/simple-create";
-import { RunsTable } from "@/components/hrd/runs-table";
+import { PayrollRunsWorkspace, RunRow, PayGroupOption } from "@/components/hrd/payroll-runs-workspace";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Payroll run — ABPS" };
+export const metadata = { title: "Payroll Runs — ABPS" };
 
 export default async function Page() {
   const [{ rows }, g] = await Promise.all([
-    fromRoute<{ rows: { id: string; pay_group_name: string; period_start: string; period_end: string; status: string }[] }>(await list()),
-    fromRoute<{ rows: { id: string; code: string; pay_frequency: string }[] }>(await groups()),
+    fromRoute<{ rows: RunRow[] }>(await list()),
+    fromRoute<{ rows: PayGroupOption[] }>(await groups()),
   ]);
+
   return (
-    <div>
-      <h1 className="mb-3 mt-0 text-[20px] font-bold text-[var(--primary)]">Payroll run</h1>
-      <p className="mb-2 text-[12px] text-[#888]">{g.rows.map((r) => `${r.id}:${r.code}:${r.pay_frequency}`).join(" · ")}</p>
-      <SimpleCreate
-        action="/api/payroll-runs"
-        label="Generate run"
-        fields={[
-          { name: "payGroupId", label: "ID kelompok" },
-          { name: "periodStart", label: "Mulai", type: "date" },
-          { name: "periodEnd", label: "Akhir", type: "date" },
-          { name: "payFrequency", label: "weekly/monthly" },
-        ]}
-      />
-      <RunsTable rows={rows} />
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-[20px] font-bold text-[var(--primary)]">Payroll Runs</h1>
+        <p className="text-[13px] text-gray-500">
+          Kelola siklus penggajian bulanan (Outlet & Kantor) dan pekanan (Crew Dapur). Setiap siklus dikalkulasi secara terpisah sesuai aturan kerja masing-masing.
+        </p>
+      </div>
+
+      <PayrollRunsWorkspace runs={rows} payGroups={g.rows} />
     </div>
   );
 }

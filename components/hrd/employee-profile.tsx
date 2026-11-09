@@ -142,6 +142,7 @@ export function EmployeeProfile({
     employeeType: employee.employee_type ?? "outlet",
     canClockOutsideRadius: Boolean(employee.can_clock_outside_radius),
     supervisorEmployeeId: employee.supervisor_employee_id ?? "",
+    hourlyRate: employee.hourly_rate ? String(Math.round(Number(employee.hourly_rate))) : "",
     recordStatus: employee.record_status,
     inPayroll: employee.in_payroll,
     nik: employee.nik ?? "",
@@ -171,6 +172,7 @@ export function EmployeeProfile({
       payGroupId: form.payGroupId || null,
       employeeType: form.employeeType || "outlet",
       canClockOutsideRadius: Boolean(form.canClockOutsideRadius),
+      hourlyRate: form.hourlyRate ? Number(form.hourlyRate) : null,
       supervisorEmployeeId: form.supervisorEmployeeId || null,
       maritalStatus: form.maritalStatus || null,
       employmentStatus: form.employmentStatus || "contract",
@@ -358,6 +360,16 @@ export function EmployeeProfile({
                       options={catalogs.employeeTypes && catalogs.employeeTypes.length > 0 ? catalogs.employeeTypes : EMPLOYEE_TYPE_OPTIONS}
                       placeholder="Pilih jenis karyawan"
                       allowClear={false}
+                    />
+                  </Field>
+                  <Field label="Tarif upah per jam (Dapur / Pekanan)" hint="Dipakai otomatis pada penggajian mingguan (Upah Jam)">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      step={500}
+                      placeholder="Cth: 18000"
+                      value={form.hourlyRate}
+                      onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
                     />
                   </Field>
                   <Field label="Izin absen luar radius">

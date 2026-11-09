@@ -105,17 +105,18 @@ export async function GET(req: Request) {
   const g = await guard("schedules", "read");
   if (g.error) return g.error;
   const sql = getDb();
-  const ids = await visibleEmployeeIds(sql, g.session!.user);
   const url = new URL(req.url);
   const month = url.searchParams.get("month");
   const locationId = url.searchParams.get("locationId");
+
+  // Seluruh pengguna (superadmin, superordinat, subordinat) bisa melihat seluruh jadwal crew outlet
+  // Namun hanya superadmin dan superordinat yang memiliki izin canWrite: true
   const employees = await sql`
     SELECT e.id, e.full_name, e.location_id, l.name AS location_name
     FROM employees e
     JOIN pay_groups g ON g.id = e.pay_group_id AND g.code = ${OUTLET_PAY_GROUP}
     LEFT JOIN locations l ON l.id = e.location_id
     WHERE e.deleted_at IS NULL
-      AND (${ids}::bigint[] IS NULL OR e.id = ANY(${ids}::bigint[]))
       AND (${locationId}::text IS NULL OR e.location_id = ${locationId}::bigint)
     ORDER BY e.full_name
   `;

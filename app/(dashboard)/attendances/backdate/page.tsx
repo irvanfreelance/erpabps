@@ -7,11 +7,14 @@ export const metadata = { title: "Backdate presensi — ABPS" };
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: { id: string; full_name: string }[] }>(await listEmp());
   return (
-    <div>
-      <h1 className="mb-2 mt-0 text-[20px] font-bold text-[var(--primary)]">Koreksi backdate</h1>
-      <p className="mb-3 text-[13px] text-[#666]">Hanya superadmin. Alasan wajib. Jejak ke audit_logs.</p>
-      <p className="mb-3 text-[12px] text-[#888]">{rows.map((r) => `${r.id}:${r.full_name}`).join(" · ")}</p>
-      <BackdateForm />
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[20px] font-bold text-[var(--primary)]">Koreksi Backdate / Lupa Presensi</h1>
+        <p className="text-[13px] text-gray-500">
+          Khusus Superadmin/HR. Digunakan untuk mengentri presensi karyawan yang lupa absen atau koreksi kehadiran dengan alasan tertulis dan jejak audit.
+        </p>
+      </div>
+      <BackdateForm employees={rows.map((r) => ({ id: r.id, name: r.full_name }))} />
     </div>
   );
 }

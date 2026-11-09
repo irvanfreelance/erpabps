@@ -13,7 +13,7 @@ type Emp = {
 
 export async function calculateRun(sql: SqlClient, runId: string, actorId: string) {
   const runs = await sql`
-    SELECT id, pay_group_id, period_start, period_end, status
+    SELECT id, pay_group_id, period_start, period_end, status, pay_frequency
     FROM payroll_runs WHERE id = ${runId}::bigint
   `;
   const run = runs[0] as
@@ -23,6 +23,7 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
         period_start: string;
         period_end: string;
         status: string;
+        pay_frequency: string;
       }
     | undefined;
   if (!run) throw new Error("Run tidak ditemukan");
@@ -61,8 +62,17 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
   await sql`DELETE FROM payroll_items WHERE payroll_run_id = ${runId}::bigint`;
   await sql`DELETE FROM payroll_run_snapshots WHERE payroll_run_id = ${runId}::bigint`;
 
+  const periodEndIso =
+    (run.period_end as unknown) instanceof Date
+      ? (run.period_end as unknown as Date).toISOString().slice(0, 10)
+      : String(run.period_end).slice(0, 10);
+  const periodStartIso =
+    (run.period_start as unknown) instanceof Date
+      ? (run.period_start as unknown as Date).toISOString().slice(0, 10)
+      : String(run.period_start).slice(0, 10);
+
   for (const emp of employees) {
-    const settings = await resolvePayrollSettings(sql, String(run.period_end).slice(0, 10), {
+    const settings = await resolvePayrollSettings(sql, periodEndIso, {
       employeeId: emp.id,
       positionId: emp.position_id,
       locationId: emp.location_id,
@@ -72,23 +82,32 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
     const lateRate = Number(settings["attendance.late_deduction_rate"] ?? 1000);
 
     const att = (await sql`
-      SELECT a.late_minutes, a.payable_minutes, a.clock_in_at, a.clock_out_at,
-             COALESCE(st.shift_kind, 'regular') AS shift_kind
+      SELECT a.attendance_date, a.late_minutes, a.payable_minutes, a.clock_in_at, a.clock_out_at,
+             COALESCE(st.shift_kind, 'regular') AS shift_kind,
+             h.id AS holiday_id, h.name AS holiday_name, h.is_sunday,
+             EXTRACT(DOW FROM a.attendance_date) AS dow
       FROM attendances a
       LEFT JOIN shift_assignments sa ON sa.id = a.shift_assignment_id
       LEFT JOIN shift_templates st ON st.id = sa.shift_template_id
+      LEFT JOIN holidays h ON h.holiday_date = a.attendance_date
       WHERE a.employee_id = ${emp.id}::bigint
-        AND a.attendance_date BETWEEN ${run.period_start}::date AND ${run.period_end}::date
+        AND a.attendance_date BETWEEN ${periodStartIso}::date AND ${periodEndIso}::date
     `) as {
+      attendance_date: string;
       late_minutes: number;
       payable_minutes: number;
       clock_in_at: string | null;
       clock_out_at: string | null;
       shift_kind: string;
+      holiday_id: string | null;
+      holiday_name: string | null;
+      is_sunday: boolean | null;
+      dow: number;
     }[];
 
     let lateMinutes = 0;
     let payableMinutes = 0;
+    let holidayWorkDays = 0;
     for (const row of att) {
       const backup = row.shift_kind === "backup";
       lateMinutes += backup || lateMode === "none" ? 0 : Number(row.late_minutes ?? 0);
@@ -99,6 +118,10 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
           0,
           Math.round((new Date(row.clock_out_at).getTime() - new Date(row.clock_in_at).getTime()) / 60000),
         );
+      }
+      // Cek masuk di tanggal merah selain hari Minggu (DOW 0 = Minggu)
+      if (row.holiday_id && !row.is_sunday && Number(row.dow) !== 0 && (row.clock_in_at || Number(row.payable_minutes) > 0)) {
+        holidayWorkDays += 1;
       }
     }
 
@@ -128,14 +151,79 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
       earnings += amount;
     }
 
+    // Tambahan uang masuk di tanggal merah selain hari Minggu untuk karyawan bulanan (Dinamis dari master settings)
+    const holidayRate = Number(settings["holiday.work_bonus_rate"] ?? 50000);
+    if (run.pay_frequency === "monthly" && holidayWorkDays > 0 && holidayRate > 0) {
+      const holidayTotal = holidayWorkDays * holidayRate;
+      details.push({
+        code: "INSENTIF_TGL_MERAH",
+        amount: holidayTotal,
+        qty: holidayWorkDays,
+        rate: holidayRate,
+      });
+      earnings += holidayTotal;
+    }
+
+    // Ambil alokasi bonus tambahan dari bonus_pools yang disetujui untuk karyawan ini pada periode payroll
+    const bonusAllocs = (await sql`
+      SELECT a.component_code, a.amount, a.reason
+      FROM bonus_allocations a
+      JOIN bonus_pools bp ON bp.id = a.bonus_pool_id
+      WHERE a.employee_id = ${emp.id}::bigint
+        AND bp.status IN ('calculated', 'approved')
+        AND bp.period_start <= ${periodEndIso}::date
+        AND bp.period_end >= ${periodStartIso}::date
+    `) as { component_code: string; amount: string; reason: string | null }[];
+
+    for (const ba of bonusAllocs) {
+      const amt = Number(ba.amount);
+      if (amt > 0) {
+        details.push({
+          code: `BONUS_${ba.component_code.toUpperCase()}`,
+          amount: amt,
+          qty: 1,
+          rate: amt,
+        });
+        earnings += amt;
+      }
+    }
+
+    // Hitung Lembur yang sudah di-approve oleh atasan / HR superadmin
+    const overtimes = (await sql`
+      SELECT id, overtime_date, duration_minutes, payable_hours, flat_rate
+      FROM overtime_requests
+      WHERE employee_id = ${emp.id}::bigint
+        AND status = 'approved'
+        AND overtime_date BETWEEN ${periodStartIso}::date AND ${periodEndIso}::date
+    `) as { id: string; overtime_date: string; duration_minutes: number; payable_hours: string; flat_rate: string }[];
+
+    let overtimeTotal = 0;
+    let overtimeHours = 0;
+    for (const ot of overtimes) {
+      const hours = Number(ot.payable_hours) || Number(ot.duration_minutes) / 60;
+      const rate = Number(ot.flat_rate) || 25000;
+      const otAmount = Math.round(hours * rate);
+      overtimeTotal += otAmount;
+      overtimeHours += hours;
+    }
+    if (overtimeTotal > 0) {
+      details.push({
+        code: "LEMBUR",
+        amount: overtimeTotal,
+        qty: Number(overtimeHours.toFixed(2)),
+        rate: Math.round(overtimeTotal / (overtimeHours || 1)),
+      });
+      earnings += overtimeTotal;
+    }
+
     const kasbon = (await sql`
-      SELECT id, installment_amount, remaining_amount
+      SELECT id, installment_amount, override_installment_amount, remaining_amount
       FROM cash_advances
       WHERE employee_id = ${emp.id}::bigint
         AND screening_status = 'passed'
         AND remaining_amount > 0
       ORDER BY requested_at
-    `) as { id: string; installment_amount: string; remaining_amount: string }[];
+    `) as { id: string; installment_amount: string; override_installment_amount: string | null; remaining_amount: string }[];
 
     let deductions = 0;
     if (lateMode !== "none" && lateMinutes > 0 && lateRate > 0) {
@@ -145,7 +233,9 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
     }
 
     for (const k of kasbon) {
-      const cut = Math.min(Number(k.installment_amount), Number(k.remaining_amount));
+      // Gunakan nominal override jika sudah disetel oleh Superadmin HR, jika belum gunakan installment_amount awal
+      const agreedCut = k.override_installment_amount != null ? Number(k.override_installment_amount) : Number(k.installment_amount);
+      const cut = Math.min(agreedCut, Number(k.remaining_amount));
       if (cut <= 0) continue;
       details.push({ code: "KASBON", amount: -cut, qty: 1, rate: cut });
       deductions += cut;
@@ -169,7 +259,8 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
       `;
     }
     for (const k of kasbon) {
-      const cut = Math.min(Number(k.installment_amount), Number(k.remaining_amount));
+      const agreedCut = k.override_installment_amount != null ? Number(k.override_installment_amount) : Number(k.installment_amount);
+      const cut = Math.min(agreedCut, Number(k.remaining_amount));
       if (cut <= 0) continue;
       await sql`
         INSERT INTO cash_advance_repayments (cash_advance_id, payroll_item_id, amount)
