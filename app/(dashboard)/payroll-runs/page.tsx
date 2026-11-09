@@ -3,7 +3,7 @@ import { GET as groups } from "@/app/api/pay-groups/route";
 import { PayrollRunsWorkspace, RunRow, PayGroupOption } from "@/components/hrd/payroll-runs-workspace";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Payroll Runs — ABPS" };
+export const metadata = { title: "Payroll Runs" };
 
 export default async function Page() {
   const [{ rows }, g] = await Promise.all([

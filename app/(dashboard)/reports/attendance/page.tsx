@@ -2,7 +2,7 @@ import { GET as list } from "@/app/api/reports/attendance/route";
 import { DataTable } from "@/components/data-table/data-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Laporan kehadiran — ABPS" };
+export const metadata = { title: "Laporan kehadiran" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: { full_name: string; days: number; late_minutes: number }[] }>(await list());

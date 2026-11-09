@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtRp } from "@/lib/utils/format";
 
-export const metadata = { title: "Faktur & Piutang — ABPS Stock" };
+export const metadata = { title: "Faktur & Piutang" };
 
 export default async function SalesInvoicesPage() {
   const session = await getServerSession();

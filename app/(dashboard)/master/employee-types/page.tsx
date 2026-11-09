@@ -3,7 +3,7 @@ import { SimpleCreate } from "@/components/hrd/simple-create";
 import { DataTable } from "@/components/data-table/data-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Jenis Karyawan — ABPS" };
+export const metadata = { title: "Jenis Karyawan" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: { id: string; code: string; name: string; description: string | null }[] }>(

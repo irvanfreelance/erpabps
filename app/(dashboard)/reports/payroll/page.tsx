@@ -2,7 +2,7 @@ import { GET as list } from "@/app/api/reports/payroll/route";
 import { DataTable } from "@/components/data-table/data-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Laporan payroll — ABPS" };
+export const metadata = { title: "Laporan payroll" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: { full_name: string; period_end: string; status: string; net_pay: string }[] }>(await list());

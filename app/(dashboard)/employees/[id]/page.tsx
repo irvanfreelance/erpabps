@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db";
 import { visibleEmployeeIds } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
 
-export const metadata = { title: "Profil karyawan — ABPS" };
+export const metadata = { title: "Profil karyawan" };
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

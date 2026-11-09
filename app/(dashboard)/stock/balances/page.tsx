@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtRp } from "@/lib/utils/format";
 
-export const metadata = { title: "Saldo Persediaan — ABPS Stock" };
+export const metadata = { title: "Saldo Persediaan" };
 
 export default async function StockBalancesPage() {
   const session = await getServerSession();

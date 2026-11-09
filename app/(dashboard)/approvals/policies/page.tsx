@@ -3,7 +3,7 @@ import { PolicyForm } from "@/components/hrd/policy-form";
 import { DataTable } from "@/components/data-table/data-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Kebijakan persetujuan — ABPS" };
+export const metadata = { title: "Kebijakan persetujuan" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{

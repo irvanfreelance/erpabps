@@ -2,7 +2,7 @@ import { GET as list } from "@/app/api/approval-requests/route";
 import { DataTable } from "@/components/data-table/data-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Kotak persetujuan — ABPS" };
+export const metadata = { title: "Kotak persetujuan" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: { id: string; target_type: string; status: string; requested_by_name: string }[] }>(await list());

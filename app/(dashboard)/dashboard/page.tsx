@@ -2,7 +2,7 @@ import { Activity } from "lucide-react";
 import { GET as dashboardStats } from "@/app/api/dashboard/route";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Dasbor — ABPS", description: "Ringkasan HRD" };
+export const metadata = { title: "Dasbor", description: "Ringkasan HRD" };
 
 export default async function DashboardPage() {
   const stats = await fromRoute<{

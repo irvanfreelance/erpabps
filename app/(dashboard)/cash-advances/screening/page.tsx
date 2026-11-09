@@ -2,7 +2,7 @@ import { GET as list } from "@/app/api/cash-advances/route";
 import { ScreeningTable } from "@/components/hrd/screening-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Screening kasbon — ABPS" };
+export const metadata = { title: "Screening kasbon" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{

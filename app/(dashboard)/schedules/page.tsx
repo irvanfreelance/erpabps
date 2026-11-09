@@ -3,7 +3,7 @@ import { GET as listLoc } from "@/app/api/locations/route";
 import { ScheduleBoard } from "@/components/hrd/schedule-board";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
 
-export const metadata = { title: "Kalender jadwal — ABPS" };
+export const metadata = { title: "Kalender jadwal" };
 
 export default async function Page({
   searchParams,

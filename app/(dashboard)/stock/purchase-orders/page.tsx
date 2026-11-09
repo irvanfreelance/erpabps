@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 
-export const metadata = { title: "Pesanan Beli (PO) — ABPS Stock" };
+export const metadata = { title: "Pesanan Beli (PO)" };
 
 export default async function PurchaseOrdersPage() {
   const session = await getServerSession();

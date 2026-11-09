@@ -3,7 +3,7 @@ import { GET as list } from "@/app/api/positions/route";
 import { PositionsManager } from "@/components/hrd/positions-manager";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Jabatan — ABPS" };
+export const metadata = { title: "Jabatan" };
 
 export default async function Page() {
   const [{ rows }, d] = await Promise.all([

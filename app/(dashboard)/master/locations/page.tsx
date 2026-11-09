@@ -4,7 +4,7 @@ import { LocationsWorkspace, type LocationRow } from "@/components/hrd/locations
 import { fromRoute } from "@/lib/api/from-route";
 import { btnPrimary } from "@/components/ui/button";
 
-export const metadata = { title: "Lokasi — ABPS" };
+export const metadata = { title: "Lokasi" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: LocationRow[] }>(await list());

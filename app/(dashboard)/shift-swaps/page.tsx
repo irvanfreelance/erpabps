@@ -4,7 +4,7 @@ import { ShiftSwapsManager, type ShiftSwapRow } from "@/components/hrd/shift-swa
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Tukar Shift — ABPS" };
+export const metadata = { title: "Tukar Shift" };
 
 export default async function Page() {
   const session = await getServerSession();

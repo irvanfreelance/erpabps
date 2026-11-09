@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtDate, fmtRp } from "@/lib/utils/format";
 
-export const metadata = { title: "Hutang Vendor — ABPS Stock" };
+export const metadata = { title: "Hutang Vendor" };
 
 export default async function VendorBillsPage() {
   const session = await getServerSession();

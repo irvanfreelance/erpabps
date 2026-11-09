@@ -3,7 +3,7 @@ import { RuleForm } from "@/components/hrd/rule-form";
 import { DataTable } from "@/components/data-table/data-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Aturan — ABPS" };
+export const metadata = { title: "Aturan" };
 
 export default async function Page() {
   const { definitions, values } = await fromRoute<{

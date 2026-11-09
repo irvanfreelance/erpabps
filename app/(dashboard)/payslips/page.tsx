@@ -3,7 +3,7 @@ import { PayslipsTable } from "@/components/hrd/payslips-table";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
 import { PayslipItem } from "@/lib/utils/export-payslip-pdf";
 
-export const metadata = { title: "Slip Gaji — ABPS" };
+export const metadata = { title: "Slip Gaji" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{

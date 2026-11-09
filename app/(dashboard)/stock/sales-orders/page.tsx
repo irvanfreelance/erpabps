@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtDate } from "@/lib/utils/format";
 
-export const metadata = { title: "Order Penjualan (SO) — ABPS Stock" };
+export const metadata = { title: "Order Penjualan (SO)" };
 
 export default async function SalesOrdersPage() {
   const session = await getServerSession();

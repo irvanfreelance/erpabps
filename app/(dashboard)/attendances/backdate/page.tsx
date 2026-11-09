@@ -2,7 +2,7 @@ import { GET as listEmp } from "@/app/api/employees/route";
 import { BackdateForm } from "@/components/hrd/backdate-form";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Backdate presensi — ABPS" };
+export const metadata = { title: "Backdate presensi" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: { id: string; full_name: string }[] }>(await listEmp());

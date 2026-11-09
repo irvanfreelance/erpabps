@@ -3,7 +3,7 @@ import { GET as getOrg } from "@/app/api/org-profile/route";
 import { fromRoute } from "@/lib/api/from-route";
 import { fallbackOrg, type OrgProfile } from "@/types/org";
 
-export const metadata = { title: "Lembaga — ABPS" };
+export const metadata = { title: "Lembaga" };
 
 export default async function Page() {
   let org: OrgProfile;

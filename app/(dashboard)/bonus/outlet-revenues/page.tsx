@@ -4,7 +4,7 @@ import { SimpleCreate } from "@/components/hrd/simple-create";
 import { DataTable } from "@/components/data-table/data-table";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Omset outlet — ABPS" };
+export const metadata = { title: "Omset outlet" };
 
 export default async function Page() {
   const [{ rows }, l] = await Promise.all([

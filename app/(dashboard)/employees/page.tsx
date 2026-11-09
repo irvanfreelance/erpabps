@@ -4,7 +4,7 @@ import { EmployeesWorkspace } from "@/components/hrd/employees-workspace";
 import { fromRoute } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Karyawan — ABPS" };
+export const metadata = { title: "Karyawan" };
 
 export default async function Page() {
   const session = await getServerSession();

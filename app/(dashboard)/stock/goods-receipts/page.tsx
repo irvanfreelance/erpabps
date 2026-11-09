@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtRp } from "@/lib/utils/format";
 
-export const metadata = { title: "Penerimaan Barang (GRN) — ABPS Stock" };
+export const metadata = { title: "Penerimaan Barang (GRN)" };
 
 export default async function GoodsReceiptsPage() {
   const session = await getServerSession();

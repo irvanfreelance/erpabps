@@ -1,6 +1,6 @@
 import { LocationForm } from "@/components/hrd/location-form";
 
-export const metadata = { title: "Lokasi baru — ABPS" };
+export const metadata = { title: "Lokasi baru" };
 
 export default function Page() {
   return (

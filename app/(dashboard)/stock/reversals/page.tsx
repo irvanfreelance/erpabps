@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 
-export const metadata = { title: "Koreksi / Pembalik Stok — ABPS Stock" };
+export const metadata = { title: "Koreksi / Pembalik Stok" };
 
 export default async function StockReversalsPage() {
   const session = await getServerSession();

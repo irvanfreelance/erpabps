@@ -3,7 +3,7 @@ import { HolidaysManager, type HolidayRow } from "@/components/hrd/holidays-mana
 import { fromRoute } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Master Hari Libur — ABPS" };
+export const metadata = { title: "Master Hari Libur" };
 
 export default async function Page() {
   const session = await getServerSession();

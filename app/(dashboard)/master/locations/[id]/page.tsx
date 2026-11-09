@@ -4,7 +4,7 @@ import { LocationForm } from "@/components/hrd/location-form";
 import type { LocationRow } from "@/components/hrd/locations-workspace";
 import { fromRoute, internalRequest, RouteError } from "@/lib/api/from-route";
 
-export const metadata = { title: "Ubah lokasi — ABPS" };
+export const metadata = { title: "Ubah lokasi" };
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -2,7 +2,7 @@ import { GET as list } from "@/app/api/ranks/route";
 import { RanksManager } from "@/components/hrd/ranks-manager";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Pangkat — ABPS" };
+export const metadata = { title: "Pangkat" };
 
 export default async function Page() {
   const { rows } = await fromRoute<{ rows: { id: string; code: string; name: string; sort_order: number }[] }>(await list());

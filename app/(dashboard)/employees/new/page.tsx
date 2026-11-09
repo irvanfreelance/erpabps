@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 import { fromRoute } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Karyawan baru — ABPS" };
+export const metadata = { title: "Karyawan baru" };
 
 type Opt = { id: string; name: string };
 

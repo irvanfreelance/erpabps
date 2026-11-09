@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtDate } from "@/lib/utils/format";
 
-export const metadata = { title: "Stock Opname — ABPS Stock" };
+export const metadata = { title: "Stock Opname" };
 
 export default async function StockCountsPage() {
   const session = await getServerSession();

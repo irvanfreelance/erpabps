@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtDate } from "@/lib/utils/format";
 
-export const metadata = { title: "Permintaan Belanja — ABPS Stock" };
+export const metadata = { title: "Permintaan Belanja" };
 
 export default async function PurchaseRequestsPage() {
   const session = await getServerSession();

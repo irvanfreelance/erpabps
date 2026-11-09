@@ -24,8 +24,12 @@ export async function generateMetadata(): Promise<Metadata> {
   }
   const v = encodeURIComponent(String(org.updated_at ?? Date.now()));
   const icon = `/icon?v=${v}`;
+  const brandName = org.nama_singkat || org.nama;
   return {
-    title: org.nama,
+    title: {
+      template: `%s — ${brandName}`,
+      default: org.nama,
+    },
     description: org.tagline || org.nama,
     icons: {
       icon: [

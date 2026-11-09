@@ -3,7 +3,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { ownEmployeeId } from "@/lib/hrd/scope";
 
-export const metadata = { title: "Clock-in — ABPS" };
+export const metadata = { title: "Clock-in" };
 
 export default async function Page() {
   const session = await getServerSession();

@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtRp } from "@/lib/utils/format";
 
-export const metadata = { title: "Kas Dapur & Operasional — ABPS Stock" };
+export const metadata = { title: "Kas Dapur & Operasional" };
 
 export default async function CashFundsPage() {
   const session = await getServerSession();

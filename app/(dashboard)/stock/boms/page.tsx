@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtDate } from "@/lib/utils/format";
 
-export const metadata = { title: "Resep & Komposisi (BOM) — ABPS Stock" };
+export const metadata = { title: "Resep & Komposisi (BOM)" };
 
 export default async function BomsPage() {
   const session = await getServerSession();

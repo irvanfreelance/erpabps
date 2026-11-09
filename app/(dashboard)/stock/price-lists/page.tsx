@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtDate } from "@/lib/utils/format";
 
-export const metadata = { title: "Daftar Harga & Margin — ABPS Stock" };
+export const metadata = { title: "Daftar Harga & Margin" };
 
 export default async function PriceListsPage() {
   const session = await getServerSession();

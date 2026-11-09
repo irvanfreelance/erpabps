@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtRp } from "@/lib/utils/format";
 
-export const metadata = { title: "Perintah Produksi — ABPS Stock" };
+export const metadata = { title: "Perintah Produksi" };
 
 export default async function ProductionOrdersPage() {
   const session = await getServerSession();

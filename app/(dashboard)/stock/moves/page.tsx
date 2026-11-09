@@ -5,7 +5,7 @@ import { StockTablePage } from "@/components/stock/stock-table-page";
 import { jsonSafe } from "@/lib/utils/serialize";
 import { fmtRp } from "@/lib/utils/format";
 
-export const metadata = { title: "Kartu Stok — ABPS Stock" };
+export const metadata = { title: "Kartu Stok" };
 
 export default async function StockMovesPage() {
   const session = await getServerSession();

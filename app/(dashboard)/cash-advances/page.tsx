@@ -3,7 +3,7 @@ import { CashAdvancesManager, type CashAdvanceRow } from "@/components/hrd/cash-
 import { fromRoute } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Pengajuan Kasbon — ABPS" };
+export const metadata = { title: "Pengajuan Kasbon" };
 
 export default async function Page() {
   const session = await getServerSession();

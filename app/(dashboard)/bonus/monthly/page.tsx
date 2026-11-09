@@ -7,7 +7,7 @@ import {
 } from "@/components/hrd/monthly-bonus-workspace";
 import { fromRoute } from "@/lib/api/from-route";
 
-export const metadata = { title: "Bonus Bulanan Berkomponen — ABPS" };
+export const metadata = { title: "Bonus Bulanan Berkomponen" };
 
 export default async function Page() {
   const [{ rows, allocations }, groupsData] = await Promise.all([

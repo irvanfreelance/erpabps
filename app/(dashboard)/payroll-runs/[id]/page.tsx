@@ -3,7 +3,7 @@ import { RunManager, RunItem } from "@/components/hrd/run-manager";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Detail Payroll Run — ABPS" };
+export const metadata = { title: "Detail Payroll Run" };
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

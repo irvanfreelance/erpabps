@@ -5,7 +5,7 @@ import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { visibleEmployeeIds } from "@/lib/hrd/scope";
 
-export const metadata = { title: "Pengajuan Lembur — ABPS" };
+export const metadata = { title: "Pengajuan Lembur" };
 
 export default async function Page() {
   const session = await getServerSession();

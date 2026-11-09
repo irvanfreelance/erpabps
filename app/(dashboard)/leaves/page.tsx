@@ -3,7 +3,7 @@ import { LeavesManager, type LeaveRow } from "@/components/hrd/leaves-manager";
 import { fromRoute } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
 
-export const metadata = { title: "Pengajuan Cuti & Izin — ABPS" };
+export const metadata = { title: "Pengajuan Cuti & Izin" };
 
 export default async function Page() {
   const session = await getServerSession();

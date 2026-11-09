@@ -4,7 +4,7 @@ import { GET as listEmployeeTypes } from "@/app/api/employee-types/route";
 import { AttendancesTable, type AttendanceItem } from "@/components/hrd/attendances-table";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
 
-export const metadata = { title: "Daftar Kehadiran Karyawan — ABPS" };
+export const metadata = { title: "Daftar Kehadiran Karyawan" };
 
 export default async function Page() {
   const [{ rows }, locs, types] = await Promise.all([
