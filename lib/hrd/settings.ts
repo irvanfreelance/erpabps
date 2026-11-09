@@ -66,6 +66,7 @@ export async function resolvePayrollSettings(
 ) {
   const keys = [
     "attendance.late_deduction_mode",
+    "attendance.late_deduction_rate",
     "weekly.total_hours_basis",
     "period.monthly_payday_day",
   ];

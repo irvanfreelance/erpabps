@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   BANK_NAMES,
   EDUCATION_LEVELS,
+  EMPLOYEE_TYPES,
   EMPLOYMENT_STATUSES,
   FAMILY_RELATIONS,
   GENDERS,
@@ -47,6 +48,8 @@ const employeeFields = z.object({
     rankId: optionalBigintId,
     payGroupId: optionalBigintId,
     supervisorEmployeeId: optionalBigintId,
+    employeeType: optionalEnum(EMPLOYEE_TYPES, "jenis karyawan"),
+    canClockOutsideRadius: z.boolean().optional(),
     maritalStatus: optionalEnum(MARITAL_STATUSES, "status pernikahan"),
     employmentStatus: optionalEnum(EMPLOYMENT_STATUSES, "status karyawan"),
     recordStatus: optionalEnum(["draft", "active"] as const, "status data"),

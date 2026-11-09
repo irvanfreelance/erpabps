@@ -48,6 +48,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number; strokeWidth?: n
   "/master/locations": MapPin,
   "/master/positions": Users,
   "/master/ranks": Users,
+  "/master/employee-types": Users,
   "/master/pay-groups": Wallet,
   "/master/salary-components": Wallet,
   "/master/holidays": CalendarDays,

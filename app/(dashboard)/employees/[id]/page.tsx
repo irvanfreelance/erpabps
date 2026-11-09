@@ -3,6 +3,7 @@ import { GET as getEmployee } from "@/app/api/employees/[id]/route";
 import { GET as listEmployees } from "@/app/api/employees/route";
 import { GET as listLocations } from "@/app/api/locations/route";
 import { GET as listPayGroups } from "@/app/api/pay-groups/route";
+import { GET as listEmployeeTypes } from "@/app/api/employee-types/route";
 import { GET as listPositions } from "@/app/api/positions/route";
 import { GET as listRanks } from "@/app/api/ranks/route";
 import { GET as listStages } from "@/app/api/contract-stage-options/route";
@@ -35,8 +36,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   let locations: { rows: Opt[] };
   let stages: { rows: { id: string; name: string; code: string }[] };
   let comps: { rows: { id: string; name: string; code: string }[] };
+  let types: { rows: { id: string; code: string; name: string }[] };
   try {
-    [data, emp, positions, ranks, groups, locations, stages, comps] = await Promise.all([
+    const results = await Promise.all([
       fromRoute(await getEmployee(internalRequest(`/api/employees/${id}`), { params: Promise.resolve({ id }) })),
       fromRoute(await listEmployees()),
       fromRoute(await listPositions()),
@@ -45,7 +47,17 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       fromRoute(await listLocations()),
       fromRoute(await listStages()),
       fromRoute(await listComponents()),
+      fromRoute(await listEmployeeTypes()),
     ]);
+    data = results[0] as typeof data;
+    emp = results[1] as typeof emp;
+    positions = results[2] as typeof positions;
+    ranks = results[3] as typeof ranks;
+    groups = results[4] as typeof groups;
+    locations = results[5] as typeof locations;
+    stages = results[6] as typeof stages;
+    comps = results[7] as typeof comps;
+    types = results[8] as typeof types;
   } catch (err) {
     if (err instanceof RouteError && err.status === 401) redirect("/login");
     throw err;
@@ -64,6 +76,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         ranks: ranks.rows,
         payGroups: groups.rows,
         locations: locations.rows,
+        employeeTypes: types.rows.map((t) => ({ value: t.code, label: t.name })),
         supervisors: emp.rows.map((r) => ({ id: r.id, name: r.full_name })),
         salaryComponents: comps.rows.map((c) => ({ id: c.id, name: `${c.code} — ${c.name}` })),
         stages: stages.rows,

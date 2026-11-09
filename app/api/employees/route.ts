@@ -35,7 +35,7 @@ export async function GET() {
 
   const rows = await sql`
     SELECT e.id, e.full_name, e.employee_number, e.record_status, e.in_payroll,
-           e.employment_status, e.gender,
+           e.employment_status, e.gender, e.employee_type, e.can_clock_outside_radius,
            to_char(e.join_date, 'YYYY-MM-DD') AS join_date,
            p.name AS position_name, rk.name AS rank_name, l.name AS location_name,
            g.name AS pay_group_name, s.full_name AS supervisor_name,
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
       location_id, position_id, rank_id, pay_group_id, supervisor_employee_id,
       employment_status, record_status, in_payroll, validation_required, has_login,
       hourly_rate, daily_rate, email, phone, nik, npwp, bpjs_kesehatan_id, bpjs_tk_id, tax_status,
-      bank_name, bank_account_number, bank_account_name
+      bank_name, bank_account_number, bank_account_name, employee_type, can_clock_outside_radius
     ) VALUES (
       ${d.fullName},
       ${employeeNumber},
@@ -123,9 +123,11 @@ export async function POST(req: Request) {
       ${g.session!.user.role === "superadmin" ? d.taxStatus || null : null},
       ${g.session!.user.role === "superadmin" ? d.bankName || null : null},
       ${g.session!.user.role === "superadmin" ? d.bankAccountNumber || null : null},
-      ${g.session!.user.role === "superadmin" ? d.bankAccountName || null : null}
+      ${g.session!.user.role === "superadmin" ? d.bankAccountName || null : null},
+      ${d.employeeType ?? "outlet"},
+      ${Boolean(d.canClockOutsideRadius)}
     )
-    RETURNING id, full_name, employee_number, record_status, in_payroll
+    RETURNING id, full_name, employee_number, record_status, in_payroll, employee_type, can_clock_outside_radius
   `;
   const createdId = String((rows[0] as { id: string }).id);
   await ensureEmployeeUser(sql, createdId);

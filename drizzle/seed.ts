@@ -282,13 +282,14 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
     ]
       .filter(Boolean)
       .join(" | ");
+    const empType = person.pay_group_code === "WEEKLY_DAPUR" ? "dapur" : (person.pay_group_code === "MONTHLY_KANTOR" ? "office" : "outlet");
     await sql.query(
       `INSERT INTO employees (
          full_name, employee_number, position_id, location_id, pay_group_id,
          join_date, record_status, source_row, source_note, in_payroll,
-         validation_required, has_login, supervisor_employee_id
+         validation_required, has_login, supervisor_employee_id, employee_type
        )
-       SELECT $1, $2, p.id, l.id, g.id, $3::date, $4, $5, $6, $7, TRUE, FALSE, NULL
+       SELECT $1, $2, p.id, l.id, g.id, $3::date, $4, $5, $6, $7, TRUE, FALSE, NULL, $11
        FROM (SELECT 1) AS dummy
        LEFT JOIN positions p ON p.code = $8
        LEFT JOIN locations l ON l.code = $9
@@ -305,6 +306,7 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
          in_payroll = EXCLUDED.in_payroll,
          validation_required = TRUE,
          supervisor_employee_id = NULL,
+         employee_type = EXCLUDED.employee_type,
          updated_at = now()`,
       [
         person.full_name,
@@ -317,6 +319,7 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
         person.position_code,
         person.location_code,
         person.pay_group_code,
+        empType,
       ],
     );
     if (isActive) active += 1;
@@ -354,6 +357,7 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
     `INSERT INTO setting_definitions (key, category, label, value_type, default_value, allowed_scopes, is_locked)
      VALUES
       ('attendance.late_deduction_mode', 'attendance', 'Mode denda telat', 'enum', '{"v":"none"}', '{org,pay_group,position,employee}', FALSE),
+      ('attendance.late_deduction_rate', 'attendance', 'Tarif denda telat per menit (Rupiah)', 'integer', '{"v":1000}', '{org,pay_group,position,employee}', FALSE),
       ('weekly.total_hours_basis', 'weekly', 'Dasar jam dapur', 'enum', '{"v":"raw_clock_in"}', '{pay_group,position,employee}', FALSE),
       ('period.monthly_payday_day', 'period', 'Tanggal gaji bulanan', 'integer', '{"v":1}', '{pay_group}', FALSE),
       ('contract.remind_days', 'contract', 'Hari pengingat akhir kontrak', 'integer', '{"v":null}', '{org}', FALSE),
@@ -372,6 +376,23 @@ async function seedCatalog(sql: Sql, doc: SeedDoc, actorId: string | null) {
      )`,
     [actorId],
   );
+
+  // Pasang aturan per_minute rate 1000 untuk pay_group MONTHLY_OUTLET
+  const outletGroup = rowsOf(await sql.query(`SELECT id FROM pay_groups WHERE code = 'MONTHLY_OUTLET' LIMIT 1`))[0];
+  const lateModeDef = rowsOf(await sql.query(`SELECT id FROM setting_definitions WHERE key = 'attendance.late_deduction_mode' LIMIT 1`))[0];
+  const lateRateDef = rowsOf(await sql.query(`SELECT id FROM setting_definitions WHERE key = 'attendance.late_deduction_rate' LIMIT 1`))[0];
+  if (outletGroup && lateModeDef && lateRateDef) {
+    await sql.query(
+      `INSERT INTO setting_values (
+         definition_id, scope_type, scope_id, value, effective_from, status, source_ref, reason, created_by
+       )
+       VALUES
+         ($1::bigint, 'pay_group', $2::bigint, '{"v":"per_minute"}', DATE '2026-11-06', 'active', 'doc_erp_abs_stok', 'aturan telat outlet per menit', $3::bigint),
+         ($4::bigint, 'pay_group', $2::bigint, '{"v":1000}', DATE '2026-11-06', 'active', 'doc_erp_abs_stok', 'tarif telat outlet 1000/menit', $3::bigint)
+       ON CONFLICT DO NOTHING`,
+      [lateModeDef.id, outletGroup.id, actorId, lateRateDef.id],
+    );
+  }
 }
 
 function isoDate(value: unknown) {

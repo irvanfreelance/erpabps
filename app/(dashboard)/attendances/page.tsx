@@ -1,25 +1,33 @@
 import { GET as list } from "@/app/api/attendances/route";
-import { DataTable } from "@/components/data-table/data-table";
+import { GET as listLocations } from "@/app/api/locations/route";
+import { GET as listEmployeeTypes } from "@/app/api/employee-types/route";
+import { AttendancesTable, type AttendanceItem } from "@/components/hrd/attendances-table";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
 
-export const metadata = { title: "Rekap presensi — ABPS" };
+export const metadata = { title: "Daftar Kehadiran Karyawan — ABPS" };
 
 export default async function Page() {
-  const { rows } = await fromRoute<{
-    rows: { id: string; full_name: string; attendance_date: string; clock_in_at: string | null; late_minutes: number; clock_in_status: string }[];
-  }>(await list(internalRequest("/api/attendances")));
+  const [{ rows }, locs, types] = await Promise.all([
+    fromRoute<{ rows: AttendanceItem[] }>(await list(internalRequest("/api/attendances"))),
+    fromRoute<{ rows: { id: string; name: string }[] }>(await listLocations()).catch(() => ({ rows: [] })),
+    fromRoute<{ rows: { code: string; name: string }[] }>(await listEmployeeTypes()).catch(() => ({ rows: [] })),
+  ]);
+
   return (
-    <div>
-      <h1 className="mb-3 mt-0 text-[20px] font-bold text-[var(--primary)]">Rekap presensi</h1>
-      <DataTable
-        data={rows}
-        columns={[
-          { key: "full_name", label: "Nama" },
-          { key: "attendance_date", label: "Tanggal" },
-          { key: "clock_in_at", label: "Masuk" },
-          { key: "late_minutes", label: "Telat", numeric: true },
-          { key: "clock_in_status", label: "Status" },
-        ]}
+    <div className="space-y-4">
+      <div>
+        <h1 className="mb-1 mt-0 text-[20px] font-bold text-[var(--primary)]">
+          Daftar Kehadiran Karyawan
+        </h1>
+        <p className="text-[13px] text-gray-500">
+          Rekap presensi aktual harian, status radius lokasi, keterlambatan, dan pencatatan alasan.
+        </p>
+      </div>
+
+      <AttendancesTable
+        initialRows={rows}
+        locations={locs.rows}
+        employeeTypes={types.rows}
       />
     </div>
   );

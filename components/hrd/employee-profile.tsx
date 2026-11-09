@@ -11,7 +11,7 @@ import { Field, formCard, inputClass } from "@/components/hrd/field";
 import { MoneyInput } from "@/components/hrd/money-input";
 import { Modal } from "@/components/hrd/modal";
 import { SearchSelect } from "@/components/shared/search-select";
-import { BANK_OPTIONS, EDUCATION_LEVEL_OPTIONS, EMPLOYMENT_STATUS_OPTIONS, FAMILY_RELATION_OPTIONS, MARITAL_OPTIONS, TAX_STATUS_OPTIONS } from "@/lib/hrd/static-options";
+import { BANK_OPTIONS, EDUCATION_LEVEL_OPTIONS, EMPLOYEE_TYPE_OPTIONS, EMPLOYMENT_STATUS_OPTIONS, FAMILY_RELATION_OPTIONS, MARITAL_OPTIONS, TAX_STATUS_OPTIONS } from "@/lib/hrd/static-options";
 import { btnDangerSm, btnPrimary, btnSecondary } from "@/components/ui/button";
 import { fmtTenure, parseMoney } from "@/lib/utils/format";
 import { firstIssue } from "@/lib/validators/common";
@@ -56,6 +56,8 @@ type Emp = {
   bpjs_kesehatan_id: string | null;
   bpjs_tk_id: string | null;
   tax_status: string | null;
+  employee_type: string | null;
+  can_clock_outside_radius: boolean;
 };
 
 const emptyEmployee: Emp = {
@@ -88,6 +90,8 @@ const emptyEmployee: Emp = {
   bpjs_kesehatan_id: null,
   bpjs_tk_id: null,
   tax_status: null,
+  employee_type: "outlet",
+  can_clock_outside_radius: false,
 };
 
 export function EmployeeProfile({
@@ -114,6 +118,7 @@ export function EmployeeProfile({
     ranks: Opt[];
     payGroups: Opt[];
     locations: Opt[];
+    employeeTypes?: { value: string; label: string }[];
     supervisors: Opt[];
     salaryComponents: Opt[];
     stages: Opt[];
@@ -134,6 +139,8 @@ export function EmployeeProfile({
     rankId: employee.rank_id ?? "",
     locationId: employee.location_id ?? "",
     payGroupId: employee.pay_group_id ?? "",
+    employeeType: employee.employee_type ?? "outlet",
+    canClockOutsideRadius: Boolean(employee.can_clock_outside_radius),
     supervisorEmployeeId: employee.supervisor_employee_id ?? "",
     recordStatus: employee.record_status,
     inPayroll: employee.in_payroll,
@@ -162,6 +169,8 @@ export function EmployeeProfile({
       rankId: form.rankId || null,
       locationId: form.locationId || null,
       payGroupId: form.payGroupId || null,
+      employeeType: form.employeeType || "outlet",
+      canClockOutsideRadius: Boolean(form.canClockOutsideRadius),
       supervisorEmployeeId: form.supervisorEmployeeId || null,
       maritalStatus: form.maritalStatus || null,
       employmentStatus: form.employmentStatus || "contract",
@@ -265,9 +274,8 @@ export function EmployeeProfile({
               <button
                 key={id}
                 type="button"
-                className={`min-h-11 shrink-0 whitespace-nowrap rounded-xl px-3 text-[13px] md:w-full md:text-left ${
-                  tab === id ? "bg-white font-semibold text-[var(--primary)]" : "bg-transparent text-[#555]"
-                }`}
+                className={`min-h-11 shrink-0 whitespace-nowrap rounded-xl px-3 text-[13px] md:w-full md:text-left ${tab === id ? "bg-white font-semibold text-[var(--primary)]" : "bg-transparent text-[#555]"
+                  }`}
                 onClick={() => goTab(id)}
               >
                 {label}
@@ -276,273 +284,296 @@ export function EmployeeProfile({
           </nav>
         </aside>
         <div className="min-w-0 flex-1">
-      {tab === "dasar" && (
-        <div className={formCard}>
-          <p className="mt-0 mb-4 text-[13px] text-[#5a6b67] md:text-[14px]">Identitas, alamat, jabatan, dan atasan dalam satu form. NIK dan KTP opsional.</p>
-          <fieldset disabled={!canEdit} className="m-0 min-w-0 border-0 p-0">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-5">
-            <Field label="Nama lengkap">
-              <input className={inputClass} maxLength={255} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
-            </Field>
-            <Field label="Nomor karyawan" hint="Kosong = otomatis CW + 3 digit">
-              <input className={inputClass} maxLength={5} pattern="CW[0-9]{3}" placeholder="CW001" value={form.employeeNumber} onChange={(e) => setForm({ ...form, employeeNumber: e.target.value.toUpperCase() })} />
-            </Field>
-            <Field label="Jenis kelamin">
-              <SearchSelect
-                value={form.gender}
-                onChange={(v) => setForm({ ...form, gender: v })}
-                options={[
-                  { value: "male", label: "Laki-laki" },
-                  { value: "female", label: "Perempuan" },
-                ]}
-                placeholder="Pilih jenis kelamin"
-              />
-            </Field>
-            <Field label="Status pernikahan">
-              <SearchSelect
-                value={form.maritalStatus}
-                onChange={(v) => setForm({ ...form, maritalStatus: v })}
-                options={MARITAL_OPTIONS}
-                placeholder="Pilih status pernikahan"
-              />
-            </Field>
-            <Field label="Tanggal lahir">
-              <input className={inputClass} type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
-            </Field>
-            <Field label="Tanggal bergabung" hint="Kosong = tetap draf">
-              <input className={inputClass} type="date" value={form.joinDate} onChange={(e) => setForm({ ...form, joinDate: e.target.value })} />
-            </Field>
-            <Field label="Alamat" className="md:col-span-2">
-              <textarea className={`${inputClass} min-h-20 py-2`} maxLength={1000} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-            </Field>
-            <Field label="Status data">
-              <SearchSelect
-                value={form.recordStatus}
-                onChange={(v) => setForm({ ...form, recordStatus: v })}
-                options={[
-                  { value: "draft", label: "Draf" },
-                  { value: "active", label: "Aktif" },
-                ]}
-                allowClear={false}
-              />
-            </Field>
-            <Field label="Status karyawan" hint="Tetap, kontrak, atau training">
-              <SearchSelect
-                value={form.employmentStatus}
-                onChange={(v) => setForm({ ...form, employmentStatus: v })}
-                options={EMPLOYMENT_STATUS_OPTIONS}
-                allowClear={false}
-              />
-            </Field>
-            <Field label="Jabatan">
-              <SearchSelect value={form.positionId} onChange={(v) => setForm({ ...form, positionId: v })} options={opts(catalogs.positions)} placeholder="Cari jabatan" />
-            </Field>
-            <Field label="Pangkat">
-              <SearchSelect value={form.rankId} onChange={(v) => setForm({ ...form, rankId: v })} options={opts(catalogs.ranks)} placeholder="Cari pangkat" />
-            </Field>
-            <Field label="Kelompok gaji">
-              <SearchSelect value={form.payGroupId} onChange={(v) => setForm({ ...form, payGroupId: v })} options={opts(catalogs.payGroups)} placeholder="Cari kelompok" />
-            </Field>
-            <Field label="Lokasi">
-              <SearchSelect value={form.locationId} onChange={(v) => setForm({ ...form, locationId: v })} options={opts(catalogs.locations)} placeholder="Cari lokasi" />
-            </Field>
-            <Field label="Atasan langsung" className="md:col-span-2" hint="Satu orang, tanpa hierarki bertingkat">
-              <SearchSelect
-                value={form.supervisorEmployeeId}
-                onChange={(v) => setForm({ ...form, supervisorEmployeeId: v })}
-                options={opts(catalogs.supervisors.filter((s) => s.id !== employee.id))}
-                placeholder="Cari nama atasan"
-              />
-            </Field>
-            <Field label="NIK (opsional)" hint="16 digit, hanya di tab ini">
-              <input className={inputClass} inputMode="numeric" maxLength={16} pattern="[0-9]{16}" value={form.nik} onChange={(e) => setForm({ ...form, nik: e.target.value.replace(/\D/g, "").slice(0, 16) })} />
-            </Field>
-            <Field label="NPWP" hint="15 atau 16 digit">
-              <input className={inputClass} inputMode="numeric" maxLength={16} value={form.npwp} onChange={(e) => setForm({ ...form, npwp: e.target.value.replace(/\D/g, "").slice(0, 16) })} />
-            </Field>
-            <Field label="Status pajak (PTKP)">
-              <SearchSelect
-                value={form.taxStatus}
-                onChange={(v) => setForm({ ...form, taxStatus: v })}
-                options={TAX_STATUS_OPTIONS}
-                placeholder="Pilih TK/0, K/1, …"
-              />
-            </Field>
-            <Field label="BPJS Kesehatan" hint="13 digit">
-              <input className={inputClass} inputMode="numeric" maxLength={13} value={form.bpjsKesehatanId} onChange={(e) => setForm({ ...form, bpjsKesehatanId: e.target.value.replace(/\D/g, "").slice(0, 13) })} />
-            </Field>
-            <Field label="BPJS Ketenagakerjaan" hint="11 digit">
-              <input className={inputClass} inputMode="numeric" maxLength={11} value={form.bpjsTkId} onChange={(e) => setForm({ ...form, bpjsTkId: e.target.value.replace(/\D/g, "").slice(0, 11) })} />
-            </Field>
-            <Field label="Email">
-              <input className={inputClass} type="email" required maxLength={255} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            </Field>
-            <Field label="HP (opsional)">
-              <input className={inputClass} inputMode="tel" maxLength={16} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d+]/g, "").slice(0, 16) })} />
-            </Field>
-            <Field label="Bank">
-              <SearchSelect
-                value={form.bankName}
-                onChange={(v) => setForm({ ...form, bankName: v })}
-                options={BANK_OPTIONS}
-                placeholder="Pilih bank"
-              />
-            </Field>
-            <Field label="Nomor rekening">
-              <input className={inputClass} inputMode="numeric" maxLength={20} value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value.replace(/\D/g, "").slice(0, 20) })} />
-            </Field>
-            <Field label="Atas nama rekening" className="md:col-span-2">
-              <input className={inputClass} maxLength={255} value={form.bankAccountName} onChange={(e) => setForm({ ...form, bankAccountName: e.target.value })} />
-            </Field>
-            {mode === "edit" ? (
-            <Field label="Foto KTP (opsional)" className="md:col-span-2">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                {employee.ktp_image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={employee.ktp_image_url} alt="KTP" className="max-h-32 rounded-2xl bg-white object-contain p-2" />
-                ) : null}
-                <input className="block text-[13px]" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => e.target.files?.[0] && uploadKtp(e.target.files[0])} />
-                {employee.ktp_image_url ? (
-                  <button
-                    type="button"
-                    className={btnSecondary}
-                    onClick={async () => {
-                      await fetch(`/api/employees/${employee.id}/ktp`, { method: "DELETE" });
-                      router.refresh();
-                    }}
-                  >
-                    Hapus KTP
+          {tab === "dasar" && (
+            <div className={formCard}>
+              <p className="mt-0 mb-4 text-[13px] text-[#5a6b67] md:text-[14px]">Identitas, alamat, jabatan, dan atasan dalam satu form. NIK dan KTP opsional.</p>
+              <fieldset disabled={!canEdit} className="m-0 min-w-0 border-0 p-0">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-5">
+                  <Field label="Nama lengkap">
+                    <input className={inputClass} maxLength={255} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+                  </Field>
+                  <Field label="Nomor karyawan" hint="Kosong = otomatis CW + 3 digit">
+                    <input className={inputClass} maxLength={5} pattern="CW[0-9]{3}" placeholder="CW001" value={form.employeeNumber} onChange={(e) => setForm({ ...form, employeeNumber: e.target.value.toUpperCase() })} />
+                  </Field>
+                  <Field label="Jenis kelamin">
+                    <SearchSelect
+                      value={form.gender}
+                      onChange={(v) => setForm({ ...form, gender: v })}
+                      options={[
+                        { value: "male", label: "Laki-laki" },
+                        { value: "female", label: "Perempuan" },
+                      ]}
+                      placeholder="Pilih jenis kelamin"
+                    />
+                  </Field>
+                  <Field label="Status pernikahan">
+                    <SearchSelect
+                      value={form.maritalStatus}
+                      onChange={(v) => setForm({ ...form, maritalStatus: v })}
+                      options={MARITAL_OPTIONS}
+                      placeholder="Pilih status pernikahan"
+                    />
+                  </Field>
+                  <Field label="Tanggal lahir">
+                    <input className={inputClass} type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+                  </Field>
+                  <Field label="Tanggal bergabung" hint="Kosong = tetap draf">
+                    <input className={inputClass} type="date" value={form.joinDate} onChange={(e) => setForm({ ...form, joinDate: e.target.value })} />
+                  </Field>
+                  <Field label="Alamat" className="md:col-span-2">
+                    <textarea className={`${inputClass} min-h-20 py-2`} maxLength={1000} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                  </Field>
+                  <Field label="Status data">
+                    <SearchSelect
+                      value={form.recordStatus}
+                      onChange={(v) => setForm({ ...form, recordStatus: v })}
+                      options={[
+                        { value: "draft", label: "Draf" },
+                        { value: "active", label: "Aktif" },
+                      ]}
+                      allowClear={false}
+                    />
+                  </Field>
+                  <Field label="Status karyawan" hint="Tetap, kontrak, atau training">
+                    <SearchSelect
+                      value={form.employmentStatus}
+                      onChange={(v) => setForm({ ...form, employmentStatus: v })}
+                      options={EMPLOYMENT_STATUS_OPTIONS}
+                      allowClear={false}
+                    />
+                  </Field>
+                  <Field label="Jabatan">
+                    <SearchSelect value={form.positionId} onChange={(v) => setForm({ ...form, positionId: v })} options={opts(catalogs.positions)} placeholder="Cari jabatan" />
+                  </Field>
+                  <Field label="Pangkat">
+                    <SearchSelect value={form.rankId} onChange={(v) => setForm({ ...form, rankId: v })} options={opts(catalogs.ranks)} placeholder="Cari pangkat" />
+                  </Field>
+                  <Field label="Kelompok gaji">
+                    <SearchSelect value={form.payGroupId} onChange={(v) => setForm({ ...form, payGroupId: v })} options={opts(catalogs.payGroups)} placeholder="Cari kelompok" />
+                  </Field>
+                  <Field label="Jenis karyawan">
+                    <SearchSelect
+                      value={form.employeeType}
+                      onChange={(v) => setForm({ ...form, employeeType: v })}
+                      options={catalogs.employeeTypes && catalogs.employeeTypes.length > 0 ? catalogs.employeeTypes : EMPLOYEE_TYPE_OPTIONS}
+                      placeholder="Pilih jenis karyawan"
+                      allowClear={false}
+                    />
+                  </Field>
+                  <Field label="Izin absen luar radius">
+                    <div className="flex items-center gap-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="canClockOutsideRadius"
+                        checked={form.canClockOutsideRadius}
+                        onChange={(e) => setForm({ ...form, canClockOutsideRadius: e.target.checked })}
+                        className="h-4 w-4 rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                      />
+                      <label htmlFor="canClockOutsideRadius" className="text-[13px] text-gray-700">
+                        Boleh absen di luar radius (wajib isi alasan)
+                      </label>
+                    </div>
+                  </Field>
+                  <Field label="Lokasi">
+                    <SearchSelect value={form.locationId} onChange={(v) => setForm({ ...form, locationId: v })} options={opts(catalogs.locations)} placeholder="Cari lokasi" />
+                  </Field>
+                  <Field label="Atasan langsung" className="md:col-span-2" hint="Satu orang, tanpa hierarki bertingkat">
+                    <SearchSelect
+                      value={form.supervisorEmployeeId}
+                      onChange={(v) => setForm({ ...form, supervisorEmployeeId: v })}
+                      options={opts(catalogs.supervisors.filter((s) => s.id !== employee.id))}
+                      placeholder="Cari nama atasan"
+                    />
+                  </Field>
+                  <Field label="NIK (opsional)" hint="16 digit, hanya di tab ini">
+                    <input className={inputClass} inputMode="numeric" maxLength={16} pattern="[0-9]{16}" value={form.nik} onChange={(e) => setForm({ ...form, nik: e.target.value.replace(/\D/g, "").slice(0, 16) })} />
+                  </Field>
+                  <Field label="NPWP" hint="15 atau 16 digit">
+                    <input className={inputClass} inputMode="numeric" maxLength={16} value={form.npwp} onChange={(e) => setForm({ ...form, npwp: e.target.value.replace(/\D/g, "").slice(0, 16) })} />
+                  </Field>
+                  <Field label="Status pajak (PTKP)">
+                    <SearchSelect
+                      value={form.taxStatus}
+                      onChange={(v) => setForm({ ...form, taxStatus: v })}
+                      options={TAX_STATUS_OPTIONS}
+                      placeholder="Pilih TK/0, K/1, …"
+                    />
+                  </Field>
+                  <Field label="BPJS Kesehatan" hint="13 digit">
+                    <input className={inputClass} inputMode="numeric" maxLength={13} value={form.bpjsKesehatanId} onChange={(e) => setForm({ ...form, bpjsKesehatanId: e.target.value.replace(/\D/g, "").slice(0, 13) })} />
+                  </Field>
+                  <Field label="BPJS Ketenagakerjaan" hint="11 digit">
+                    <input className={inputClass} inputMode="numeric" maxLength={11} value={form.bpjsTkId} onChange={(e) => setForm({ ...form, bpjsTkId: e.target.value.replace(/\D/g, "").slice(0, 11) })} />
+                  </Field>
+                  <Field label="Email">
+                    <input className={inputClass} type="email" required maxLength={255} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  </Field>
+                  <Field label="HP (opsional)">
+                    <input className={inputClass} inputMode="tel" maxLength={16} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d+]/g, "").slice(0, 16) })} />
+                  </Field>
+                  <Field label="Bank">
+                    <SearchSelect
+                      value={form.bankName}
+                      onChange={(v) => setForm({ ...form, bankName: v })}
+                      options={BANK_OPTIONS}
+                      placeholder="Pilih bank"
+                    />
+                  </Field>
+                  <Field label="Nomor rekening">
+                    <input className={inputClass} inputMode="numeric" maxLength={20} value={form.bankAccountNumber} onChange={(e) => setForm({ ...form, bankAccountNumber: e.target.value.replace(/\D/g, "").slice(0, 20) })} />
+                  </Field>
+                  <Field label="Atas nama rekening" className="md:col-span-2">
+                    <input className={inputClass} maxLength={255} value={form.bankAccountName} onChange={(e) => setForm({ ...form, bankAccountName: e.target.value })} />
+                  </Field>
+                  {mode === "edit" ? (
+                    <Field label="Foto KTP (opsional)" className="md:col-span-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {employee.ktp_image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={employee.ktp_image_url} alt="KTP" className="max-h-32 rounded-2xl bg-white object-contain p-2" />
+                        ) : null}
+                        <input className="block text-[13px]" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => e.target.files?.[0] && uploadKtp(e.target.files[0])} />
+                        {employee.ktp_image_url ? (
+                          <button
+                            type="button"
+                            className={btnSecondary}
+                            onClick={async () => {
+                              await fetch(`/api/employees/${employee.id}/ktp`, { method: "DELETE" });
+                              router.refresh();
+                            }}
+                          >
+                            Hapus KTP
+                          </button>
+                        ) : null}
+                      </div>
+                    </Field>
+                  ) : null}
+                </div>
+              </fieldset>
+              {canEdit ? (
+                <div className="mt-6 flex flex-col gap-2 md:flex-row">
+                  <button type="button" className={`${btnPrimary} w-full md:w-auto`} onClick={saveIdentity}>
+                    {mode === "create" ? "Simpan karyawan" : "Simpan data dasar"}
                   </button>
-                ) : null}
-              </div>
-            </Field>
-            ) : null}
-          </div>
-          </fieldset>
-          {canEdit ? (
-          <div className="mt-6 flex flex-col gap-2 md:flex-row">
-            <button type="button" className={`${btnPrimary} w-full md:w-auto`} onClick={saveIdentity}>
-              {mode === "create" ? "Simpan karyawan" : "Simpan data dasar"}
-            </button>
-            {mode === "create" ? (
-              <button type="button" className={`${btnSecondary} w-full md:w-auto`} onClick={() => router.push("/employees")}>
-                Batal
-              </button>
-            ) : null}
-          </div>
-          ) : (
-            <p className="mb-0 mt-4 text-[13px] text-[#666]">Mode lihat. Atasan tidak mengubah data karyawan.</p>
+                  {mode === "create" ? (
+                    <button type="button" className={`${btnSecondary} w-full md:w-auto`} onClick={() => router.push("/employees")}>
+                      Batal
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mb-0 mt-4 text-[13px] text-[#666]">Mode lihat. Atasan tidak mengubah data karyawan.</p>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {tab === "pendidikan" && (
-        <NestedModalList
-          title="Pendidikan"
-          rows={educations}
-          columns={[
-            { key: "level", label: "Jenjang" },
-            { key: "institution", label: "Institusi" },
-            { key: "major", label: "Jurusan" },
-          ]}
-          onDelete={async (id) => {
-            await fetch(`/api/employees/${employee.id}/educations?educationId=${id}`, { method: "DELETE" });
-            router.refresh();
-          }}
-          fields={[
-            { name: "level", label: "Jenjang", kind: "select", options: EDUCATION_LEVEL_OPTIONS },
-            { name: "institution", label: "Institusi" },
-            { name: "major", label: "Jurusan" },
-            { name: "startYear", label: "Tahun mulai", type: "number" },
-            { name: "endYear", label: "Tahun selesai", type: "number" },
-          ]}
-          action={`/api/employees/${employee.id}/educations`}
-          schema={educationSchema}
-          idParam="educationId"
-          rowValues={(r) => ({
-            level: String(r.level ?? ""),
-            institution: String(r.institution ?? ""),
-            major: String(r.major ?? ""),
-            startYear: r.start_year != null ? String(r.start_year) : "",
-            endYear: r.end_year != null ? String(r.end_year) : "",
-          })}
-          readOnly={!canEdit}
-        />
-      )}
+          {tab === "pendidikan" && (
+            <NestedModalList
+              title="Pendidikan"
+              rows={educations}
+              columns={[
+                { key: "level", label: "Jenjang" },
+                { key: "institution", label: "Institusi" },
+                { key: "major", label: "Jurusan" },
+              ]}
+              onDelete={async (id) => {
+                await fetch(`/api/employees/${employee.id}/educations?educationId=${id}`, { method: "DELETE" });
+                router.refresh();
+              }}
+              fields={[
+                { name: "level", label: "Jenjang", kind: "select", options: EDUCATION_LEVEL_OPTIONS },
+                { name: "institution", label: "Institusi" },
+                { name: "major", label: "Jurusan" },
+                { name: "startYear", label: "Tahun mulai", type: "number" },
+                { name: "endYear", label: "Tahun selesai", type: "number" },
+              ]}
+              action={`/api/employees/${employee.id}/educations`}
+              schema={educationSchema}
+              idParam="educationId"
+              rowValues={(r) => ({
+                level: String(r.level ?? ""),
+                institution: String(r.institution ?? ""),
+                major: String(r.major ?? ""),
+                startYear: r.start_year != null ? String(r.start_year) : "",
+                endYear: r.end_year != null ? String(r.end_year) : "",
+              })}
+              readOnly={!canEdit}
+            />
+          )}
 
-      {tab === "keluarga" && (
-        <NestedModalList
-          title="Anggota keluarga"
-          rows={family}
-          columns={[
-            { key: "relation", label: "Hubungan", render: (r) => FAMILY_RELATION_OPTIONS.find((o) => o.id === r.relation)?.name ?? r.relation },
-            { key: "full_name", label: "Nama" },
-            { key: "birth_date", label: "Lahir" },
-          ]}
-          onDelete={async (id) => {
-            await fetch(`/api/employees/${employee.id}/family?familyId=${id}`, { method: "DELETE" });
-            router.refresh();
-          }}
-          fields={[
-            { name: "relation", label: "Hubungan", kind: "select", options: FAMILY_RELATION_OPTIONS },
-            { name: "fullName", label: "Nama" },
-            { name: "birthDate", label: "Tanggal lahir", type: "date" },
-          ]}
-          action={`/api/employees/${employee.id}/family`}
-          schema={familySchema}
-          idParam="familyId"
-          rowValues={(r) => ({
-            relation: String(r.relation ?? ""),
-            fullName: String(r.full_name ?? ""),
-            birthDate: r.birth_date ? String(r.birth_date).slice(0, 10) : "",
-          })}
-          readOnly={!canEdit}
-        />
-      )}
+          {tab === "keluarga" && (
+            <NestedModalList
+              title="Anggota keluarga"
+              rows={family}
+              columns={[
+                { key: "relation", label: "Hubungan", render: (r) => FAMILY_RELATION_OPTIONS.find((o) => o.id === r.relation)?.name ?? r.relation },
+                { key: "full_name", label: "Nama" },
+                { key: "birth_date", label: "Lahir" },
+              ]}
+              onDelete={async (id) => {
+                await fetch(`/api/employees/${employee.id}/family?familyId=${id}`, { method: "DELETE" });
+                router.refresh();
+              }}
+              fields={[
+                { name: "relation", label: "Hubungan", kind: "select", options: FAMILY_RELATION_OPTIONS },
+                { name: "fullName", label: "Nama" },
+                { name: "birthDate", label: "Tanggal lahir", type: "date" },
+              ]}
+              action={`/api/employees/${employee.id}/family`}
+              schema={familySchema}
+              idParam="familyId"
+              rowValues={(r) => ({
+                relation: String(r.relation ?? ""),
+                fullName: String(r.full_name ?? ""),
+                birthDate: r.birth_date ? String(r.birth_date).slice(0, 10) : "",
+              })}
+              readOnly={!canEdit}
+            />
+          )}
 
-      {tab === "kontrak" && (
-        <div className={formCard}>
-          <p className="mt-0 mb-3 text-[13px] text-[#777]">Kontrak aktif adalah tahap paling mutakhir. Riwayat tahap tetap terlihat di bawah.</p>
-          {canEditPay ? (
-            <ContractActions employeeId={employee.id} stages={catalogs.stages} canAdvance={Boolean(canAdvance)} />
-          ) : null}
-          <div className="mt-4 overflow-x-auto">
-            <ContractTable employeeId={employee.id} rows={contracts} stages={catalogs.stages} readOnly={!canEditPay} />
-          </div>
-        </div>
-      )}
+          {tab === "kontrak" && (
+            <div className={formCard}>
+              <p className="mt-0 mb-3 text-[13px] text-[#777]">Kontrak aktif adalah tahap paling mutakhir. Riwayat tahap tetap terlihat di bawah.</p>
+              {canEditPay ? (
+                <ContractActions employeeId={employee.id} stages={catalogs.stages} canAdvance={Boolean(canAdvance)} />
+              ) : null}
+              <div className="mt-4 overflow-x-auto">
+                <ContractTable employeeId={employee.id} rows={contracts} stages={catalogs.stages} readOnly={!canEditPay} />
+              </div>
+            </div>
+          )}
 
-      {tab === "upah" && mode === "edit" && (
-        <NestedModalList
-          title="Komponen upah"
-          rows={components}
-          columns={[
-            { key: "code", label: "Kode" },
-            { key: "name", label: "Nama" },
-            { key: "amount", label: "Nominal", money: true },
-            { key: "effective_from", label: "Dari" },
-          ]}
-          fields={[
-            { name: "salaryComponentId", label: "Komponen", kind: "select", options: catalogs.salaryComponents },
-            { name: "amount", label: "Nominal", kind: "money" },
-            { name: "effectiveFrom", label: "Berlaku dari", type: "date" },
-          ]}
-          action="/api/employee-salary-components"
-          extra={{ employeeId: employee.id }}
-          schema={salaryComponentAssignSchema}
-          idParam="id"
-          onDelete={async (id) => {
-            await fetch(`/api/employee-salary-components?id=${id}`, { method: "DELETE" });
-            router.refresh();
-          }}
-          rowValues={(r) => ({
-            salaryComponentId: String(r.salary_component_id ?? ""),
-            amount: r.amount == null || r.amount === "" ? "" : String(Math.round(Number(r.amount))),
-            effectiveFrom: r.effective_from ? String(r.effective_from).slice(0, 10) : "",
-          })}
-          readOnly={!canEditPay}
-        />
-      )}
+          {tab === "upah" && mode === "edit" && (
+            <NestedModalList
+              title="Komponen upah"
+              rows={components}
+              columns={[
+                { key: "code", label: "Kode" },
+                { key: "name", label: "Nama" },
+                { key: "amount", label: "Nominal", money: true },
+                { key: "effective_from", label: "Dari" },
+              ]}
+              fields={[
+                { name: "salaryComponentId", label: "Komponen", kind: "select", options: catalogs.salaryComponents },
+                { name: "amount", label: "Nominal", kind: "money" },
+                { name: "effectiveFrom", label: "Berlaku dari", type: "date" },
+              ]}
+              action="/api/employee-salary-components"
+              extra={{ employeeId: employee.id }}
+              schema={salaryComponentAssignSchema}
+              idParam="id"
+              onDelete={async (id) => {
+                await fetch(`/api/employee-salary-components?id=${id}`, { method: "DELETE" });
+                router.refresh();
+              }}
+              rowValues={(r) => ({
+                salaryComponentId: String(r.salary_component_id ?? ""),
+                amount: r.amount == null || r.amount === "" ? "" : String(Math.round(Number(r.amount))),
+                effectiveFrom: r.effective_from ? String(r.effective_from).slice(0, 10) : "",
+              })}
+              readOnly={!canEditPay}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -714,28 +745,28 @@ function NestedModalList({
             ...(readOnly
               ? []
               : [
-                  {
-                    key: "id",
-                    label: "Aksi",
-                    render: (r: { id: string } & Record<string, string>) => (
-                      <div className="flex flex-wrap gap-1">
-                        <button type="button" className={btnSecondary} onClick={() => openEdit(r)}>Ubah</button>
-                        {onDelete ? (
-                          <button
-                            type="button"
-                            className={btnDangerSm}
-                            onClick={async () => {
-                              if (!(await confirmAction("Hapus data ini?", "Hapus"))) return;
-                              onDelete(r.id);
-                            }}
-                          >
-                            Hapus
-                          </button>
-                        ) : null}
-                      </div>
-                    ),
-                  },
-                ]),
+                {
+                  key: "id",
+                  label: "Aksi",
+                  render: (r: { id: string } & Record<string, string>) => (
+                    <div className="flex flex-wrap gap-1">
+                      <button type="button" className={btnSecondary} onClick={() => openEdit(r)}>Ubah</button>
+                      {onDelete ? (
+                        <button
+                          type="button"
+                          className={btnDangerSm}
+                          onClick={async () => {
+                            if (!(await confirmAction("Hapus data ini?", "Hapus"))) return;
+                            onDelete(r.id);
+                          }}
+                        >
+                          Hapus
+                        </button>
+                      ) : null}
+                    </div>
+                  ),
+                },
+              ]),
           ]}
         />
       </div>
@@ -814,27 +845,27 @@ function ContractTable({
           ...(readOnly
             ? []
             : [
-                {
-                  key: "id",
-                  label: "Aksi",
-                  render: (r: (typeof rows)[0]) => (
-                    <div className="flex flex-wrap gap-1">
-                      <button type="button" className={btnSecondary} onClick={() => open(r)}>Ubah</button>
-                      <button
-                        type="button"
-                        className={btnDangerSm}
-                        onClick={async () => {
-                          if (!(await confirmAction("Hapus tahap kontrak ini?", "Hapus"))) return;
-                          await fetch(`/api/employees/${employeeId}/contracts?contractId=${r.id}`, { method: "DELETE" });
-                          router.refresh();
-                        }}
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  ),
-                },
-              ]),
+              {
+                key: "id",
+                label: "Aksi",
+                render: (r: (typeof rows)[0]) => (
+                  <div className="flex flex-wrap gap-1">
+                    <button type="button" className={btnSecondary} onClick={() => open(r)}>Ubah</button>
+                    <button
+                      type="button"
+                      className={btnDangerSm}
+                      onClick={async () => {
+                        if (!(await confirmAction("Hapus tahap kontrak ini?", "Hapus"))) return;
+                        await fetch(`/api/employees/${employeeId}/contracts?contractId=${r.id}`, { method: "DELETE" });
+                        router.refresh();
+                      }}
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                ),
+              },
+            ]),
         ]}
       />
       {edit && (

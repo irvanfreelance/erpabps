@@ -80,6 +80,7 @@ export const NAV: NavGroup[] = [
       { href: "/master/locations", label: "Lokasi", roles: SA_SO },
       { href: "/master/positions", label: "Jabatan", roles: SA_SO },
       { href: "/master/ranks", label: "Pangkat", roles: SA_SO },
+      { href: "/master/employee-types", label: "Jenis karyawan", roles: SA_SO },
       { href: "/master/pay-groups", label: "Kelompok gaji", roles: SA_SO },
       { href: "/master/salary-components", label: "Komponen", roles: SA_SO },
       { href: "/master/holidays", label: "Hari libur", roles: SA_SO },

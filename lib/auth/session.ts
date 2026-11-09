@@ -27,7 +27,8 @@ function fromJwt(session: { user?: Partial<SessionUser> } | null): { user: Sessi
 }
 
 export async function getServerSession(): Promise<{ user: SessionUser } | null> {
-  let session: Awaited<ReturnType<typeof getNextAuthSession>> = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let session: any = null;
   try {
     session = await getNextAuthSession(authOptions);
   } catch {

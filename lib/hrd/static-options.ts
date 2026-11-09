@@ -3,6 +3,13 @@ export const MARITAL_STATUSES = ["unmarried", "married", "divorced", "widowed"] 
 export const EMPLOYMENT_STATUSES = ["permanent", "contract", "training"] as const;
 export const EDUCATION_LEVELS = ["SD", "SMP", "SMA", "SMK", "D1", "D2", "D3", "S1", "S2", "S3"] as const;
 export const FAMILY_RELATIONS = ["husband", "wife", "child", "father", "mother", "sibling", "guardian"] as const;
+export const EMPLOYEE_TYPES = ["outlet", "dapur", "office"] as const;
+
+export const EMPLOYEE_TYPE_OPTIONS = [
+  { value: "outlet", label: "Crew Outlet" },
+  { value: "dapur", label: "Crew Dapur" },
+  { value: "office", label: "Office" },
+];
 
 export const MARITAL_OPTIONS = [
   { value: "unmarried", label: "Belum menikah" },

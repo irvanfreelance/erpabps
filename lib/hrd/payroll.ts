@@ -69,6 +69,7 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
       payGroupId: emp.pay_group_id,
     });
     const lateMode = String(settings["attendance.late_deduction_mode"] ?? "none");
+    const lateRate = Number(settings["attendance.late_deduction_rate"] ?? 1000);
 
     const att = (await sql`
       SELECT a.late_minutes, a.payable_minutes, a.clock_in_at, a.clock_out_at,
@@ -137,6 +138,12 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
     `) as { id: string; installment_amount: string; remaining_amount: string }[];
 
     let deductions = 0;
+    if (lateMode !== "none" && lateMinutes > 0 && lateRate > 0) {
+      const lateCut = Math.round(lateMinutes * lateRate);
+      details.push({ code: "POTONGAN_TELAT", amount: -lateCut, qty: lateMinutes, rate: lateRate });
+      deductions += lateCut;
+    }
+
     for (const k of kasbon) {
       const cut = Math.min(Number(k.installment_amount), Number(k.remaining_amount));
       if (cut <= 0) continue;

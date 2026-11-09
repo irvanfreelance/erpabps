@@ -20,7 +20,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     SELECT e.id, e.full_name, e.employee_number, e.record_status, e.in_payroll, e.join_date,
            e.gender, e.marital_status, e.employment_status, e.birth_date, e.address, e.hourly_rate, e.daily_rate,
            e.position_id, e.rank_id, e.location_id, e.pay_group_id, e.supervisor_employee_id,
-           e.validation_required,
+           e.validation_required, e.employee_type, e.can_clock_outside_radius,
            CASE WHEN ${isAdmin || ownRow || g.session!.user.role === "superordinat"} THEN e.email ELSE NULL END AS email,
            CASE WHEN ${isAdmin || ownRow} THEN e.phone ELSE NULL END AS phone,
            CASE WHEN ${isAdmin} THEN e.nik ELSE NULL END AS nik,
@@ -149,9 +149,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       bank_name = CASE WHEN ${admin} THEN COALESCE(${d.bankName ?? null}, bank_name) ELSE bank_name END,
       bank_account_number = CASE WHEN ${admin} THEN COALESCE(${d.bankAccountNumber ?? null}, bank_account_number) ELSE bank_account_number END,
       bank_account_name = CASE WHEN ${admin} THEN COALESCE(${d.bankAccountName ?? null}, bank_account_name) ELSE bank_account_name END,
+      employee_type = CASE WHEN ${touchOrg} THEN COALESCE(${d.employeeType ?? null}, employee_type) ELSE employee_type END,
+      can_clock_outside_radius = CASE WHEN ${touchOrg && d.canClockOutsideRadius !== undefined} THEN ${Boolean(d.canClockOutsideRadius)} ELSE can_clock_outside_radius END,
       updated_at = now()
     WHERE id = ${id}::bigint AND deleted_at IS NULL
-    RETURNING id, full_name, record_status, in_payroll
+    RETURNING id, full_name, record_status, in_payroll, employee_type, can_clock_outside_radius
   `;
   await ensureEmployeeUser(sql, id);
   await logAudit({
