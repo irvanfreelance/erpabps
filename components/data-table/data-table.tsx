@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Columns3, Download, Search } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SearchSelect } from "@/components/shared/search-select";
 import { btnSecondary } from "@/components/ui/button";
@@ -181,39 +181,7 @@ export function DataTable<T extends { id?: string | number }>({
           }}
         />
       </div>
-      <div className="grid grid-cols-2 gap-2 md:flex md:shrink-0">
-        <div className="relative">
-          <button
-            type="button"
-            className={`${btnSecondary} w-full md:w-auto`}
-            onClick={() => setColsOpen((v) => !v)}
-          >
-            <Columns3 size={16} />
-            Kolom
-          </button>
-          {colsOpen && (
-            <div className="absolute right-0 z-20 mt-1 max-h-64 w-56 overflow-auto rounded-2xl border-0 bg-[#f7f8f8] p-1 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-              {columns.map((c) => (
-                <label key={c.key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] hover:bg-[#f6fffe]">
-                  <input
-                    type="checkbox"
-                    checked={!hidden.has(c.key)}
-                    disabled={c.hideable === false && !hidden.has(c.key) && visibleColumns.length <= 1}
-                    onChange={(e) => {
-                      setHidden((prev) => {
-                        const next = new Set(prev);
-                        if (e.target.checked) next.delete(c.key);
-                        else if (visibleColumns.length > 1) next.add(c.key);
-                        return next;
-                      });
-                    }}
-                  />
-                  {c.label}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="flex md:shrink-0">
         <button
           type="button"
           className={`${btnSecondary} w-full md:w-auto`}
@@ -320,6 +288,79 @@ export function DataTable<T extends { id?: string | number }>({
           <table className="w-max min-w-full border-collapse text-[13px]">
             <thead className="sticky top-0 z-40">
               <tr className="text-left text-[12px] font-semibold text-white">
+                <th className="relative w-10 bg-[var(--primary)] px-2.5 py-2.5">
+                  <button
+                    type="button"
+                    aria-label="Atur kolom"
+                    onClick={() => setColsOpen((v) => !v)}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded text-white/85 hover:bg-white/15 hover:text-white"
+                  >
+                    <SlidersHorizontal size={15} />
+                  </button>
+                  {colsOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-60 rounded-xl border border-slate-200 bg-white p-2 text-left font-normal text-slate-700 shadow-lg">
+                      <div className="mb-1.5 flex items-center justify-between border-b border-slate-100 px-2 pb-1.5">
+                        <span className="text-[11px] font-semibold tracking-wider text-slate-400">
+                          KOLOM
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHidden(new Set(columns.filter((c) => c.defaultHidden).map((c) => c.key)))
+                          }
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-800"
+                        >
+                          <RotateCcw size={11} />
+                          Reset
+                        </button>
+                      </div>
+                      <div className="max-h-64 space-y-0.5 overflow-auto">
+                        {columns.map((c) => {
+                          const isChecked = !hidden.has(c.key);
+                          const isDisabled =
+                            c.hideable === false || (isChecked && visibleColumns.length <= 1);
+                          return (
+                            <label
+                              key={c.key}
+                              className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] ${
+                                isDisabled
+                                  ? "cursor-not-allowed text-slate-400"
+                                  : "cursor-pointer hover:bg-slate-50"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={isChecked}
+                                disabled={isDisabled}
+                                onChange={(e) => {
+                                  setHidden((prev) => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) next.delete(c.key);
+                                    else if (visibleColumns.length > 1) next.add(c.key);
+                                    return next;
+                                  });
+                                }}
+                              />
+                              <span
+                                className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                                  isChecked
+                                    ? isDisabled
+                                      ? "border-slate-300 bg-slate-300 text-white"
+                                      : "border-[var(--primary)] bg-[var(--primary)] text-white"
+                                    : "border-slate-300 bg-white"
+                                }`}
+                              >
+                                {isChecked && <Check size={12} strokeWidth={3} />}
+                              </span>
+                              <span className="truncate">{c.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </th>
                 {selectable && (
                   <th
                     className={`w-10 bg-[var(--primary)] px-3 py-2.5 ${freezeNo ? stickyClass("left", true, false) : "bg-[var(--primary)]"}`}
@@ -368,6 +409,7 @@ export function DataTable<T extends { id?: string | number }>({
                     }}
                     className={`group border-b border-[#f0f0f0] ${onRow ? "cursor-pointer hover:bg-[#f6fffe]" : ""}`}
                   >
+                    <td className="w-10 px-2.5 py-2" />
                     {selectable && (
                       <td
                         className={`px-3 py-2 ${freezeNo ? stickyClass("left", false, false) : ""}`}
