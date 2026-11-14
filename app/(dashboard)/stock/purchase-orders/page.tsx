@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { PurchaseOrdersTable } from "@/components/stock/stock-tables";
+import { PostForm } from "@/components/stock/post-form";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Pesanan Beli (PO)" };
@@ -26,6 +27,14 @@ export default async function PurchaseOrdersPage() {
     GROUP BY po.id, po.doc_no, pr.doc_no, sp.name, po.status, po.source_unit, u.nama, po.posted_at
     ORDER BY po.id DESC
   `;
+  const [vendors, items, requests] = await Promise.all([
+    sql`SELECT id::text, name AS label FROM stock_parties WHERE party_kind = 'vendor' AND deleted_at IS NULL ORDER BY name`,
+    sql`SELECT id::text, sku || ' — ' || name AS label FROM stock_items WHERE deleted_at IS NULL ORDER BY name`,
+    sql`SELECT id::text, doc_no AS label FROM purchase_requests WHERE status = 'posted' ORDER BY id DESC`,
+  ]);
+  const vendorOpts = jsonSafe(vendors) as { id: string; label: string }[];
+  const itemOpts = jsonSafe(items) as { id: string; label: string }[];
+  const requestOpts = jsonSafe(requests) as { id: string; label: string }[];
 
   return (
     <div className="space-y-4">
@@ -36,6 +45,19 @@ export default async function PurchaseOrdersPage() {
         <p className="text-xs text-gray-500 m-0">Pesanan pembelian bahan baku ke vendor rekanan oleh tim Purchasing</p>
       </div>
       <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <PostForm
+          title="Buat & Posting PO"
+          docPrefix="PO"
+          endpoint="/api/stock/purchase-orders"
+          hint="Pesanan posted belum menggerakkan stok. Barang masuk lewat penerimaan."
+          items={itemOpts}
+          lineMode="qty-price"
+          fields={[
+            { name: "doc_no", label: "Nomor PO", kind: "text" },
+            { name: "vendor_id", label: "Vendor", kind: "select", options: vendorOpts },
+            { name: "request_id", label: "Permintaan (opsional)", kind: "select", required: false, options: requestOpts, empty: "Tanpa permintaan" },
+          ]}
+        />
         <PurchaseOrdersTable rows={jsonSafe(rows) as never} />
       </div>
     </div>

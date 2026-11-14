@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { GET as getStockReports } from "@/app/api/stock-reports/route";
-import { internalRequest, fromRoute } from "@/lib/api/from-route";
+import { internalRequest } from "@/lib/api/from-route";
 import { StockCharts } from "@/components/stock/stock-charts";
 import { StockDateFilter } from "@/components/stock/stock-date-filter";
 import {
@@ -55,11 +55,25 @@ interface StockReportsData {
     laba: string | number;
     margin_achieved_pct: string | number;
   }>;
+  kpis?: {
+    cashBalance: number;
+    inventoryValue: number;
+    openPayable: number;
+    purchases: number;
+    cogs: number;
+    omzet: number;
+    profit: number;
+    outputUnitCost: number;
+    openingStock: number;
+    countValue: number;
+  };
   reconciliation: {
     totalStockValue: number;
     totalCogs: number;
     sumStockPlusCogs: number;
     totalPurchases: number;
+    openingStock?: number;
+    countValue?: number;
     isBalanced: boolean;
   };
   charts?: {
@@ -138,7 +152,13 @@ export default async function StockDashboardPage({
   }
 
   const rec = data?.reconciliation;
-  const cashBalance = data?.cashFunds?.[0]?.balance ?? 0;
+  const kpis = data?.kpis;
+  const cashBalance = kpis?.cashBalance ?? 0;
+  const openPayable = kpis?.openPayable ?? 0;
+  const profit = kpis?.profit ?? 0;
+  const omzet = kpis?.omzet ?? 0;
+  const outputUnit = kpis?.outputUnitCost ?? 0;
+  const periodNote = startDate || endDate ? "Angka periode mengikuti tanggal posting. Saldo kas, persediaan, dan hutang dihitung sampai tanggal akhir." : "Tanpa filter: saldo saat ini dan seluruh periode.";
 
   return (
     <div className="space-y-6">
@@ -175,26 +195,28 @@ export default async function StockDashboardPage({
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div>
-              <div className="text-gray-500 font-medium">1. Belanja All-in (Vendor + Ongkir):</div>
+              <div className="text-gray-500 font-medium">1. Belanja All-in periode:</div>
               <div className="text-base font-bold text-gray-900 mt-0.5">{formatRupiah(rec.totalPurchases)}</div>
-              <div className="text-[11px] text-gray-500">GRN-CONTOH (Ayam + Bumbu + Ongkir)</div>
+              <div className="text-[11px] text-gray-500">Saldo awal {formatRupiah(rec.openingStock ?? 0)}</div>
             </div>
             <div>
-              <div className="text-gray-500 font-medium">2. HPP Barang Keluar (Terjual):</div>
+              <div className="text-gray-500 font-medium">2. HPP barang keluar periode:</div>
               <div className="text-base font-bold text-blue-700 mt-0.5">{formatRupiah(rec.totalCogs)}</div>
-              <div className="text-[11px] text-gray-500">4 kg Outlet + 3 kg Catering</div>
+              <div className="text-[11px] text-gray-500">Dari pengiriman yang posted</div>
             </div>
             <div>
-              <div className="text-gray-500 font-medium">3. Nilai Persediaan Sisa:</div>
+              <div className="text-gray-500 font-medium">3. Nilai persediaan:</div>
               <div className="text-base font-bold text-indigo-700 mt-0.5">{formatRupiah(rec.totalStockValue)}</div>
-              <div className="text-[11px] text-gray-500">Gudang Bahan + Freezer Ungkep</div>
+              <div className="text-[11px] text-gray-500">{endDate ? `Per ${endDate}` : "Saldo saat ini"}</div>
             </div>
             <div>
-              <div className="text-gray-500 font-medium">4. HPP Keluar + Nilai Sisa:</div>
+              <div className="text-gray-500 font-medium">4. Awal + belanja + opname:</div>
               <div className="text-base font-bold text-emerald-800 mt-0.5">
-                {formatRupiah(rec.sumStockPlusCogs)}
+                {formatRupiah((rec.openingStock ?? 0) + rec.totalPurchases + (rec.countValue ?? 0))}
               </div>
-              <div className="text-[11px] text-emerald-700 font-semibold">Tepat sama dengan nilai belanja Rp672.000</div>
+              <div className="text-[11px] text-emerald-700 font-semibold">
+                Dibanding sisa + HPP {formatRupiah(rec.sumStockPlusCogs)}
+              </div>
             </div>
           </div>
         </div>
@@ -209,9 +231,7 @@ export default async function StockDashboardPage({
             <Wallet size={18} className="text-amber-600" />
           </div>
           <div className="text-xl font-bold text-gray-900">{formatRupiah(cashBalance)}</div>
-          <p className="mt-1 text-[11px] text-gray-500">
-            Dari uang muka Rp2.000.000, dipakai belanja Rp672.000 (Lunas).
-          </p>
+          <p className="mt-1 text-[11px] text-gray-500">{periodNote}</p>
         </div>
 
         {/* Hutang Vendor */}
@@ -220,11 +240,9 @@ export default async function StockDashboardPage({
             <span className="text-xs font-semibold uppercase tracking-wider">Hutang Vendor (Open)</span>
             <Receipt size={18} className="text-emerald-600" />
           </div>
-          <div className="text-xl font-bold text-gray-900">
-            {formatRupiah(data?.vendorBills?.[0]?.amount_open ?? 0)}
-          </div>
-          <p className="mt-1 text-[11px] text-emerald-600 font-medium">
-            Hutang Rp672.000 telah lunas dibayar setelah barang tiba.
+          <div className="text-xl font-bold text-gray-900">{formatRupiah(openPayable)}</div>
+          <p className="mt-1 text-[11px] text-gray-500">
+            {endDate ? `Hutang terbuka per ${endDate}` : "Sisa hutang yang penerimaannya sudah posted"}
           </p>
         </div>
 
@@ -234,9 +252,9 @@ export default async function StockDashboardPage({
             <span className="text-xs font-semibold uppercase tracking-wider">HPP Ayam Ungkep</span>
             <Factory size={18} className="text-purple-600" />
           </div>
-          <div className="text-xl font-bold text-gray-900">{formatRupiah(38640)} / kg</div>
+          <div className="text-xl font-bold text-gray-900">{formatRupiah(outputUnit)} / kg</div>
           <p className="mt-1 text-[11px] text-gray-500">
-            Hasil 10 kg dari 12 kg Ayam Utuh (all-in) + 0,4 kg Bumbu Racik.
+            Rata-rata tertimbang saldo barang olahan pada tanggal saldo.
           </p>
         </div>
 
@@ -246,14 +264,8 @@ export default async function StockDashboardPage({
             <span className="text-xs font-semibold uppercase tracking-wider">Total Laba Penjualan</span>
             <TrendingUp size={18} className="text-blue-600" />
           </div>
-          <div className="text-xl font-bold text-blue-700">
-            {formatRupiah(
-              (data?.salesSummary ?? []).reduce((acc, row) => acc + Number(row.laba || 0), 0)
-            )}
-          </div>
-          <p className="mt-1 text-[11px] text-gray-500">
-            Outlet: Rp30.912 (20%) | Catering: Rp34.776 (30%).
-          </p>
+          <div className="text-xl font-bold text-blue-700">{formatRupiah(profit)}</div>
+          <p className="mt-1 text-[11px] text-gray-500">Omzet periode {formatRupiah(omzet)} dikurangi HPP faktur.</p>
         </div>
       </div>
 
@@ -317,7 +329,7 @@ export default async function StockDashboardPage({
               <h2 className="text-sm font-bold text-gray-900">Penjualan ke Kanal (Bermargin)</h2>
             </div>
             <span className="text-xs font-semibold text-blue-600">
-              Omzet: {formatRupiah(336168)}
+              Omzet: {formatRupiah(omzet)}
             </span>
           </div>
 

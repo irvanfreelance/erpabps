@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { CashFundsManager } from "@/components/stock/managers/cash-funds-manager";
+import { PostForm } from "@/components/stock/post-form";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Kas Operasional" };
@@ -28,7 +29,18 @@ export const metadata = { title: "Kas Operasional" };
           <p className="text-xs text-gray-500 m-0">Dana operasional dapur untuk pelunasan belanja bahan baku harian</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
-          <CashFundsManager rows={jsonSafe(rows) as never} />
+          <PostForm
+          title="Catat Uang Muka"
+          docPrefix="TOP"
+          endpoint="/api/stock/cash-entries"
+          hint="Saldo kas naik hanya lewat entri topup, bukan dengan menimpa angka saldo."
+          fields={[
+            { name: "fund_id", label: "Kas", kind: "select", options: (jsonSafe(rows) as Array<{ id: string; name: string }>).map((row) => ({ id: String(row.id), label: row.name })) },
+            { name: "amount", label: "Nilai", kind: "number" },
+            { name: "memo", label: "Catatan", kind: "text" },
+          ]}
+        />
+        <CashFundsManager rows={jsonSafe(rows) as never} />
         </div>
       </div>
     );

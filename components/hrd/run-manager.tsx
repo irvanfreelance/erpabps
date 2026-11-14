@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Edit2, Eye, Plus, Trash2, CheckCircle, Calculator } from "lucide-react";
+import { componentQtyLabel } from "@/lib/hrd/component-qty";
 import { Modal } from "@/components/hrd/modal";
 import { btnPrimary, btnSecondary } from "@/components/ui/button";
 
@@ -303,9 +304,9 @@ export function RunManager({
                         <tr key={d.id}>
                           <td className="p-1.5 font-medium text-gray-800">
                             {d.component_code}
-                            {d.quantity > 1 && (
+                            {componentQtyLabel(d.component_code, d.quantity, d.unit_rate) && (
                               <span className="ml-1 text-[11px] text-gray-400">
-                                ({d.quantity} x @{formatRupiah(d.unit_rate)})
+                                ({componentQtyLabel(d.component_code, d.quantity, d.unit_rate)})
                               </span>
                             )}
                           </td>

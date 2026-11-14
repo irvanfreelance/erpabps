@@ -1,5 +1,6 @@
+import { componentQtyLabel } from "@/lib/hrd/component-qty";
 import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { type RowInput } from "jspdf-autotable";
 
 export type PayslipDetail = {
   id: string;
@@ -120,7 +121,7 @@ export function exportPayslipPdf(
     }
   };
 
-  const tableBody: any[] = [];
+  const tableBody: RowInput[] = [];
 
   tableBody.push([{ content: "PENGHASILAN (EARNINGS)", colSpan: 4, styles: { fillColor: [240, 245, 245], fontStyle: "bold" } }]);
   if (earnings.length === 0) {
@@ -130,7 +131,7 @@ export function exportPayslipPdf(
       tableBody.push([
         formatCode(e.component_code),
         e.source_ref === "manual_override" ? `${e.component_code} (Manual Adjustment)` : e.component_code,
-        e.quantity > 1 ? `${e.quantity} x ${formatRupiah(e.unit_rate)}` : "-",
+        componentQtyLabel(e.component_code, e.quantity, e.unit_rate) ?? "-",
         formatRupiah(e.amount),
       ]);
     }
@@ -144,7 +145,7 @@ export function exportPayslipPdf(
       tableBody.push([
         formatCode(d.component_code),
         d.source_ref === "manual_override" ? `${d.component_code} (Manual Adjustment)` : d.component_code,
-        d.quantity > 1 ? `${d.quantity} x ${formatRupiah(d.unit_rate)}` : "-",
+        componentQtyLabel(d.component_code, d.quantity, d.unit_rate) ?? "-",
         formatRupiah(Math.abs(d.amount)),
       ]);
     }
