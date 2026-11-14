@@ -35,15 +35,24 @@ export async function POST(req: Request) {
   const sql = getDb();
   const actor = await actorUserId(sql, g.session!.user);
   if (!actor) return NextResponse.json({ error: "Superadmin belum di-seed" }, { status: 400 });
-  const rows = await sql`
-    INSERT INTO payroll_runs (pay_group_id, period_start, period_end, pay_frequency, created_by)
-    VALUES (
-      ${parsed.data.payGroupId}::bigint, ${parsed.data.periodStart}::date, ${parsed.data.periodEnd}::date,
-      ${parsed.data.payFrequency}, ${actor}::bigint
-    )
-    RETURNING id, status
-  `;
-  const id = String((rows[0] as { id: string }).id);
+  let id: string;
+  try {
+    const rows = await sql`
+      INSERT INTO payroll_runs (pay_group_id, period_start, period_end, pay_frequency, created_by)
+      VALUES (
+        ${parsed.data.payGroupId}::bigint, ${parsed.data.periodStart}::date, ${parsed.data.periodEnd}::date,
+        ${parsed.data.payFrequency}, ${actor}::bigint
+      )
+      RETURNING id, status
+    `;
+    id = String((rows[0] as { id: string }).id);
+  } catch (err: unknown) {
+    const pgErr = err as { code?: string };
+    if (pgErr?.code === "23505") {
+      return NextResponse.json({ error: "Run payroll untuk kelompok dan periode ini sudah ada" }, { status: 409 });
+    }
+    throw err;
+  }
   await calculateRun(sql, id, g.session!.user.id);
   await logAudit({ userId: g.session!.user.id, action: "create", entityType: "payroll_run", entityId: id });
   return NextResponse.json({ id, status: "calculated" });

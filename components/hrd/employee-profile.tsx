@@ -295,7 +295,7 @@ export function EmployeeProfile({
                     <input className={inputClass} maxLength={255} value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
                   </Field>
                   <Field label="Nomor karyawan" hint="Kosong = otomatis CW + 3 digit">
-                    <input className={inputClass} maxLength={5} pattern="CW[0-9]{3}" placeholder="CW001" value={form.employeeNumber} onChange={(e) => setForm({ ...form, employeeNumber: e.target.value.toUpperCase() })} />
+                    <input className={inputClass} maxLength={20} placeholder="CW001" value={form.employeeNumber} onChange={(e) => setForm({ ...form, employeeNumber: e.target.value.toUpperCase() })} />
                   </Field>
                   <Field label="Jenis kelamin">
                     <SearchSelect
@@ -366,7 +366,7 @@ export function EmployeeProfile({
                     <input
                       className={inputClass}
                       type="number"
-                      step={500}
+                      step="any"
                       placeholder="Cth: 18000"
                       value={form.hourlyRate}
                       onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}

@@ -43,26 +43,42 @@ export async function getServerSession(): Promise<{ user: SessionUser } | null> 
     const sql = getDb();
     const adminEmail = adminEmailFromEnv();
     const rows = await sql`
-      SELECT id, nama, email, role
+      SELECT id, nama, email, role, is_active
       FROM users
       WHERE lower(email) = ${email} AND deleted_at IS NULL
       LIMIT 1
     `;
-    const row = rows[0] as { id: string; nama: string; email: string; role: string } | undefined;
+    const row = rows[0] as { id: string; nama: string; email: string; role: string; is_active: boolean } | undefined;
     if (!row) {
       if (adminEmail && email === adminEmail && jwtSession) {
         return { user: { ...jwtSession.user, role: "superadmin" } };
       }
-      return jwtSession;
+      return null;
     }
-    const realRole: Role =
-      row.role === "superadmin" || (adminEmail && email === adminEmail) ? "superadmin" : (asRole(row.role) ?? "subordinat");
-    
+    if (!row.is_active) {
+      return null;
+    }
+
     const emp = await sql`
       SELECT id FROM employees
       WHERE deleted_at IS NULL AND (user_id = ${row.id}::bigint OR lower(email) = ${email})
       LIMIT 1
     `;
+    const empId = emp[0] ? String((emp[0] as { id: string }).id) : undefined;
+
+    let realRole: Role = "subordinat";
+    if (row.role === "superadmin" || (adminEmail && email === adminEmail)) {
+      realRole = "superadmin";
+    } else if (empId) {
+      const hasSub = await sql`
+        SELECT 1 FROM employees
+        WHERE supervisor_employee_id = ${empId}::bigint AND deleted_at IS NULL
+        LIMIT 1
+      `;
+      realRole = hasSub[0] ? "superordinat" : "subordinat";
+    } else {
+      realRole = asRole(row.role) ?? "subordinat";
+    }
     const realEmployeeId = emp[0] ? String((emp[0] as { id: string }).id) : null;
 
     const realUser: SessionUser = {

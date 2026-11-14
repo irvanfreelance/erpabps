@@ -76,7 +76,7 @@ export async function ensureEmployeeUser(sql: SqlClient, employeeId: string) {
   if (userId) {
     await sql`
       UPDATE users
-      SET email = ${email}, nama = ${emp.full_name}, role = ${role}, is_active = TRUE, updated_at = now()
+      SET email = ${email}, nama = ${emp.full_name}, role = ${role}, updated_at = now()
       WHERE id = ${userId}::bigint AND role <> 'superadmin'
     `;
   } else {
@@ -88,7 +88,7 @@ export async function ensureEmployeeUser(sql: SqlClient, employeeId: string) {
     if (existing[0]) {
       userId = String((existing[0] as { id: string }).id);
       await sql`
-        UPDATE users SET nama = ${emp.full_name}, role = ${role}, is_active = TRUE, updated_at = now()
+        UPDATE users SET nama = ${emp.full_name}, role = ${role}, updated_at = now()
         WHERE id = ${userId}::bigint AND role <> 'superadmin'
       `;
     } else {

@@ -72,9 +72,10 @@ export async function resolveGoogleIdentity(emailRaw: string, displayName: strin
   const userId = await ensureEmployeeUser(sql, empId);
   if (!userId) return null;
   const users = await sql`
-    SELECT id, nama, email, role FROM users WHERE id = ${userId}::bigint LIMIT 1
+    SELECT id, nama, email, role, is_active FROM users WHERE id = ${userId}::bigint AND deleted_at IS NULL LIMIT 1
   `;
-  const user = users[0] as { id: string; nama: string; email: string; role: Role };
+  const user = users[0] as { id: string; nama: string; email: string; role: Role; is_active: boolean } | undefined;
+  if (!user || !user.is_active) return null;
   await sql`UPDATE users SET last_login_at = now() WHERE id = ${user.id}::bigint`;
   return {
     id: String(user.id),

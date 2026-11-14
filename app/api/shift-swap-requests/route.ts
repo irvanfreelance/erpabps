@@ -68,6 +68,22 @@ export async function POST(req: Request) {
     if (!existing) {
       return NextResponse.json({ error: "Pengajuan tidak ditemukan" }, { status: 404 });
     }
+    if (existing.status !== "pending") {
+      return NextResponse.json({ error: "Pengajuan tukar shift sudah diputus sebelumnya" }, { status: 409 });
+    }
+    if (g.session!.user.role !== "superadmin") {
+      const actorEmpId = await ownEmployeeId(sql, g.session!.user);
+      if (!actorEmpId || String(existing.requester_id) === String(actorEmpId)) {
+        return NextResponse.json({ error: "Tidak dapat menyetujui atau menolak pengajuan sendiri" }, { status: 403 });
+      }
+      const subCheck = await sql`
+        SELECT id FROM employees
+        WHERE id = ${existing.requester_id}::bigint AND supervisor_employee_id = ${actorEmpId}::bigint
+      `;
+      if (!subCheck[0]) {
+        return NextResponse.json({ error: "Hanya atasan langsung atau superadmin yang dapat memutus pengajuan ini" }, { status: 403 });
+      }
+    }
 
     if (decision === "approved") {
       // Tukar shift langsung pada shift_assignments

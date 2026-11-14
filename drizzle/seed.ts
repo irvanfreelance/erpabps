@@ -475,6 +475,7 @@ async function seedDemoProfiles(sql: Sql) {
     employees.find((e) => String(e.full_name).toLowerCase().includes("manager") || String(e.full_name).toLowerCase().includes("dahlia"))
       ?.id ?? employees[0]?.id;
 
+  if (process.env.SEED_DEMO_DATA === "true") {
   for (let i = 0; i < employees.length; i += 1) {
     const e = employees[i];
     const id = String(e.id);
@@ -615,6 +616,7 @@ async function seedDemoProfiles(sql: Sql) {
       }
     }
   }
+  } // end SEED_DEMO_DATA
   await sql.query(
     `UPDATE employment_contracts c
      SET end_date = CURRENT_DATE + (((c.id % 18)::int + 7) * INTERVAL '1 day')

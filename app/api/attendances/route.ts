@@ -149,21 +149,37 @@ export async function POST(req: Request) {
 
   // Validasi Radius
   let isOutside = false;
-  if (parsed.data.lat != null && parsed.data.lng != null && emp.latitude != null && emp.longitude != null) {
-    const dist = calculateDistanceMeter(parsed.data.lat, parsed.data.lng, Number(emp.latitude), Number(emp.longitude));
-    if (dist > emp.radius_meter) {
+  if (emp.latitude != null && emp.longitude != null) {
+    if (parsed.data.lat == null || parsed.data.lng == null) {
       isOutside = true;
       if (!emp.can_clock_outside_radius) {
         return NextResponse.json(
-          { error: `Anda berada di luar radius lokasi presensi (${dist}m, maks ${emp.radius_meter}m).` },
+          { error: "Lokasi GPS wajib aktif untuk melakukan presensi." },
           { status: 400 },
         );
       }
       if (!parsed.data.outsideRadiusNote?.trim()) {
         return NextResponse.json(
-          { error: "Presensi di luar radius wajib menyertakan alasan keterangan." },
+          { error: "Presensi tanpa GPS / di luar radius wajib menyertakan alasan keterangan." },
           { status: 400 },
         );
+      }
+    } else {
+      const dist = calculateDistanceMeter(parsed.data.lat, parsed.data.lng, Number(emp.latitude), Number(emp.longitude));
+      if (dist > emp.radius_meter) {
+        isOutside = true;
+        if (!emp.can_clock_outside_radius) {
+          return NextResponse.json(
+            { error: `Anda berada di luar radius lokasi presensi (${dist}m, maks ${emp.radius_meter}m).` },
+            { status: 400 },
+          );
+        }
+        if (!parsed.data.outsideRadiusNote?.trim()) {
+          return NextResponse.json(
+            { error: "Presensi di luar radius wajib menyertakan alasan keterangan." },
+            { status: 400 },
+          );
+        }
       }
     }
   }

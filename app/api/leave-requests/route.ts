@@ -7,7 +7,7 @@ import { ownEmployeeId, visibleEmployeeIds } from "@/lib/hrd/scope";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 const createSchema = z.object({
-  leaveType: z.enum(["cuti", "izin", "sakit"]),
+  leaveType: z.enum(["cuti", "izin", "sakit", "off"]),
   startDate: z.string(),
   endDate: z.string(),
   reason: z.string().min(3, "Alasan minimal 3 karakter"),
@@ -48,12 +48,37 @@ export async function POST(req: Request) {
     const reqId = String(body.id);
     const decision = body.decision === "approve" ? "approved" : "rejected";
 
+    const existingRows = await sql`
+      SELECT id, employee_id, status FROM leave_requests WHERE id = ${reqId}::bigint
+    `;
+    const existing = existingRows[0] as { id: string; employee_id: string; status: string } | undefined;
+    if (!existing) {
+      return NextResponse.json({ error: "Pengajuan cuti tidak ditemukan" }, { status: 404 });
+    }
+    if (existing.status !== "pending") {
+      return NextResponse.json({ error: "Pengajuan cuti sudah diputus sebelumnya" }, { status: 409 });
+    }
+
+    if (g.session!.user.role !== "superadmin") {
+      const actorEmpId = await ownEmployeeId(sql, g.session!.user);
+      if (!actorEmpId || String(existing.employee_id) === String(actorEmpId)) {
+        return NextResponse.json({ error: "Tidak dapat menyetujui atau menolak pengajuan sendiri" }, { status: 403 });
+      }
+      const subCheck = await sql`
+        SELECT id FROM employees
+        WHERE id = ${existing.employee_id}::bigint AND supervisor_employee_id = ${actorEmpId}::bigint
+      `;
+      if (!subCheck[0]) {
+        return NextResponse.json({ error: "Hanya atasan langsung atau superadmin yang dapat memutus pengajuan ini" }, { status: 403 });
+      }
+    }
+
     const rows = await sql`
       UPDATE leave_requests
       SET status = ${decision},
           reviewed_by = ${g.session!.user.id}::bigint,
           reviewed_at = now()
-      WHERE id = ${reqId}::bigint
+      WHERE id = ${reqId}::bigint AND status = 'pending'
       RETURNING id, status, employee_id, start_date, end_date, leave_type
     `;
     const updated = rows[0] as {
@@ -66,19 +91,21 @@ export async function POST(req: Request) {
     } | undefined;
 
     if (!updated) {
-      return NextResponse.json({ error: "Pengajuan cuti tidak ditemukan" }, { status: 404 });
+      return NextResponse.json({ error: "Pengajuan cuti sudah diputus" }, { status: 409 });
     }
 
-    // Jika disetujui, update status jadwal shift_assignments pada rentang tanggal cuti menjadi 'off' / 'off_izin' / 'off_sakit'
+    // Jika disetujui, upsert jadwal shift_assignments pada rentang tanggal cuti menjadi 'off' / 'off_izin' / 'off_sakit'
     if (decision === "approved") {
       const dayStatus = updated.leave_type === "sakit" ? "off_sakit" : updated.leave_type === "izin" ? "off_izin" : "off";
+      const noteText = `Cuti/Izin (${updated.leave_type}) disetujui`;
       await sql`
-        UPDATE shift_assignments
-        SET day_status = ${dayStatus},
-            notes = 'Cuti/Izin (' || ${updated.leave_type} || ') disetujui',
-            updated_at = now()
-        WHERE employee_id = ${updated.employee_id}::bigint
-          AND work_date BETWEEN ${updated.start_date}::date AND ${updated.end_date}::date
+        INSERT INTO shift_assignments (employee_id, work_date, day_status, notes)
+        SELECT ${updated.employee_id}::bigint, d::date, ${dayStatus}, ${noteText}
+        FROM generate_series(${updated.start_date}::date, ${updated.end_date}::date, '1 day'::interval) AS d
+        ON CONFLICT (employee_id, work_date) DO UPDATE SET
+          day_status = EXCLUDED.day_status,
+          notes = EXCLUDED.notes,
+          updated_at = now()
       `;
     }
 

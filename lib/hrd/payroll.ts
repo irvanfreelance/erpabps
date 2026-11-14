@@ -40,22 +40,35 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
       AND pay_group_id = ${run.pay_group_id}::bigint
   `) as Emp[];
 
-    const oldRepay = (await sql`
-    SELECT r.cash_advance_id, r.amount
-    FROM cash_advance_repayments r
-    JOIN payroll_items i ON i.id = r.payroll_item_id
+  // Preserve manual_override adjustments before recalculating
+  const manualOverrides = (await sql`
+    SELECT i.employee_id, d.component_code, d.quantity, d.unit_rate, d.amount
+    FROM payroll_item_details d
+    JOIN payroll_items i ON i.id = d.payroll_item_id
     WHERE i.payroll_run_id = ${runId}::bigint
-  `) as { cash_advance_id: string; amount: string }[];
-  for (const r of oldRepay) {
-    await sql`
-      UPDATE cash_advances
-      SET remaining_amount = remaining_amount + ${Number(r.amount)}, updated_at = now()
-      WHERE id = ${r.cash_advance_id}::bigint
-    `;
+      AND d.source_ref = 'manual_override'
+  `) as {
+    employee_id: string;
+    component_code: string;
+    quantity: string;
+    unit_rate: string;
+    amount: string;
+  }[];
+  const overridesByEmp = new Map<
+    string,
+    { component_code: string; quantity: number; unit_rate: number; amount: number }[]
+  >();
+  for (const ov of manualOverrides) {
+    const list = overridesByEmp.get(String(ov.employee_id)) ?? [];
+    list.push({
+      component_code: ov.component_code,
+      quantity: Number(ov.quantity),
+      unit_rate: Number(ov.unit_rate),
+      amount: Number(ov.amount),
+    });
+    overridesByEmp.set(String(ov.employee_id), list);
   }
-  await sql`DELETE FROM cash_advance_repayments WHERE payroll_item_id IN (
-    SELECT id FROM payroll_items WHERE payroll_run_id = ${runId}::bigint
-  )`;
+
   await sql`DELETE FROM payroll_item_details WHERE payroll_item_id IN (
     SELECT id FROM payroll_items WHERE payroll_run_id = ${runId}::bigint
   )`;
@@ -108,6 +121,7 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
     let lateMinutes = 0;
     let payableMinutes = 0;
     let holidayWorkDays = 0;
+    let attendedDays = 0;
     for (const row of att) {
       const backup = row.shift_kind === "backup";
       lateMinutes += backup || lateMode === "none" ? 0 : Number(row.late_minutes ?? 0);
@@ -119,6 +133,9 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
           Math.round((new Date(row.clock_out_at).getTime() - new Date(row.clock_in_at).getTime()) / 60000),
         );
       }
+      if (row.clock_in_at || Number(row.payable_minutes) > 0) {
+        attendedDays += 1;
+      }
       // Cek masuk di tanggal merah selain hari Minggu (DOW 0 = Minggu)
       if (row.holiday_id && !row.is_sunday && Number(row.dow) !== 0 && (row.clock_in_at || Number(row.payable_minutes) > 0)) {
         holidayWorkDays += 1;
@@ -126,28 +143,60 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
     }
 
     const comps = (await sql`
-      SELECT sc.code, sc.component_type, esc.amount
+      SELECT DISTINCT ON (sc.id) sc.code, sc.component_type, esc.amount
       FROM employee_salary_components esc
       JOIN salary_components sc ON sc.id = esc.salary_component_id
       WHERE esc.employee_id = ${emp.id}::bigint
         AND esc.effective_from <= ${run.period_end}::date
         AND (esc.effective_until IS NULL OR esc.effective_until > ${run.period_start}::date)
+      ORDER BY sc.id, esc.effective_from DESC, esc.id DESC
     `) as { code: string; component_type: string; amount: string }[];
 
     const details: { code: string; amount: number; qty: number; rate: number }[] = [];
     let earnings = 0;
+    let deductions = 0;
+    const hours = payableMinutes / 60;
+    let hasHourlyComponent = false;
+
     for (const c of comps) {
       const amount = Number(c.amount);
-      if (c.component_type.startsWith("earning")) {
-        details.push({ code: c.code, amount, qty: 1, rate: amount });
-        earnings += amount;
+      switch (c.component_type) {
+        case "earning_fixed": {
+          details.push({ code: c.code, amount, qty: 1, rate: amount });
+          earnings += amount;
+          break;
+        }
+        case "earning_hourly": {
+          hasHourlyComponent = true;
+          const total = Math.round(amount * hours);
+          details.push({ code: c.code, amount: total, qty: Number(hours.toFixed(2)), rate: amount });
+          earnings += total;
+          break;
+        }
+        case "earning_daily": {
+          const total = Math.round(amount * attendedDays);
+          details.push({ code: c.code, amount: total, qty: attendedDays, rate: amount });
+          earnings += total;
+          break;
+        }
+        case "deduction": {
+          if (amount > 0) {
+            details.push({ code: c.code, amount: -amount, qty: 1, rate: amount });
+            deductions += amount;
+          }
+          break;
+        }
+        case "earning_variable":
+        default:
+          // Komponen variabel berasal dari lembur / bonus, dilewati di sini
+          break;
       }
     }
-    const hours = payableMinutes / 60;
-    if (emp.hourly_rate) {
+
+    if (!hasHourlyComponent && emp.hourly_rate) {
       const rate = Number(emp.hourly_rate);
       const amount = Math.round(rate * hours);
-      details.push({ code: "UPAH_JAM", amount, qty: hours, rate });
+      details.push({ code: "UPAH_JAM", amount, qty: Number(hours.toFixed(2)), rate });
       earnings += amount;
     }
 
@@ -217,15 +266,24 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
     }
 
     const kasbon = (await sql`
-      SELECT id, installment_amount, override_installment_amount, remaining_amount
+      SELECT id, installment_amount, override_installment_amount, remaining_amount, interval_unit
       FROM cash_advances
       WHERE employee_id = ${emp.id}::bigint
         AND screening_status = 'passed'
         AND remaining_amount > 0
+        AND (
+          ${run.pay_frequency} = 'monthly' AND (interval_unit IS NULL OR interval_unit IN ('monthly', 'custom'))
+          OR ${run.pay_frequency} = 'weekly' AND interval_unit = 'weekly'
+        )
       ORDER BY requested_at
-    `) as { id: string; installment_amount: string; override_installment_amount: string | null; remaining_amount: string }[];
+    `) as {
+      id: string;
+      installment_amount: string;
+      override_installment_amount: string | null;
+      remaining_amount: string;
+      interval_unit: string | null;
+    }[];
 
-    let deductions = 0;
     if (lateMode !== "none" && lateMinutes > 0 && lateRate > 0) {
       const lateCut = Math.round(lateMinutes * lateRate);
       details.push({ code: "POTONGAN_TELAT", amount: -lateCut, qty: lateMinutes, rate: lateRate });
@@ -239,6 +297,16 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
       if (cut <= 0) continue;
       details.push({ code: "KASBON", amount: -cut, qty: 1, rate: cut });
       deductions += cut;
+    }
+
+    // Re-apply manual_override adjustments if any existed before recalculation
+    const empOverrides = overridesByEmp.get(String(emp.id)) ?? [];
+    for (const ov of empOverrides) {
+      if (ov.amount >= 0) {
+        earnings += ov.amount;
+      } else {
+        deductions += Math.abs(ov.amount);
+      }
     }
 
     const net = earnings - deductions;
@@ -258,22 +326,14 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
         VALUES (${itemId}::bigint, ${d.code}, ${d.qty}, ${d.rate}, ${d.amount}, 'calculated')
       `;
     }
-    for (const k of kasbon) {
-      const agreedCut = k.override_installment_amount != null ? Number(k.override_installment_amount) : Number(k.installment_amount);
-      const cut = Math.min(agreedCut, Number(k.remaining_amount));
-      if (cut <= 0) continue;
+    for (const ov of empOverrides) {
       await sql`
-        INSERT INTO cash_advance_repayments (cash_advance_id, payroll_item_id, amount)
-        VALUES (${k.id}::bigint, ${itemId}::bigint, ${cut})
-      `;
-      await sql`
-        UPDATE cash_advances
-        SET remaining_amount = remaining_amount - ${cut}, updated_at = now()
-        WHERE id = ${k.id}::bigint
+        INSERT INTO payroll_item_details (payroll_item_id, component_code, quantity, unit_rate, amount, source_ref)
+        VALUES (${itemId}::bigint, ${ov.component_code}, ${ov.quantity}, ${ov.unit_rate}, ${ov.amount}, 'manual_override')
       `;
     }
 
-    const payload = JSON.stringify({ settings, lateMode, actorId });
+    const payload = JSON.stringify({ settings, lateMode });
     const hash = createHash("sha256").update(payload).digest("hex");
     await sql`
       INSERT INTO payroll_run_snapshots (payroll_run_id, employee_id, resolved_settings, settings_hash)
@@ -286,15 +346,64 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
 }
 
 export async function approveRun(sql: SqlClient, runId: string) {
-  const runs = await sql`SELECT status FROM payroll_runs WHERE id = ${runId}::bigint`;
-  const status = (runs[0] as { status: string } | undefined)?.status;
-  if (!status) throw new Error("Run tidak ditemukan");
-  if (status === "approved" || status === "paid") return { frozen: true };
-  await calculateRun(sql, runId, "approve");
-  await sql`
+  const runs = await sql`SELECT status, pay_frequency FROM payroll_runs WHERE id = ${runId}::bigint`;
+  const run = runs[0] as { status: string; pay_frequency: string } | undefined;
+  if (!run) throw new Error("Run tidak ditemukan");
+  if (run.status === "approved" || run.status === "paid") return { frozen: true };
+
+  // Lock status atomically without recalculating (preserves manual_override adjustments)
+  const locked = await sql`
     UPDATE payroll_runs
     SET status = 'approved', settings_frozen_at = now()
-    WHERE id = ${runId}::bigint
+    WHERE id = ${runId}::bigint AND status IN ('calculated', 'reviewed')
+    RETURNING id
   `;
+  if (!locked[0]) return { frozen: true };
+
+  // Apply cash_advance_repayments and deduct remaining_amount only upon approval
+  const kasbonItems = (await sql`
+    SELECT i.id AS item_id, i.employee_id, ABS(d.amount) AS cut_amount
+    FROM payroll_item_details d
+    JOIN payroll_items i ON i.id = d.payroll_item_id
+    WHERE i.payroll_run_id = ${runId}::bigint
+      AND d.component_code = 'KASBON'
+      AND d.amount < 0
+  `) as { item_id: string; employee_id: string; cut_amount: string }[];
+
+  for (const ki of kasbonItems) {
+    let remainingToDeduct = Number(ki.cut_amount);
+    if (remainingToDeduct <= 0) continue;
+
+    const advances = (await sql`
+      SELECT id, remaining_amount
+      FROM cash_advances
+      WHERE employee_id = ${ki.employee_id}::bigint
+        AND screening_status = 'passed'
+        AND remaining_amount > 0
+        AND (
+          ${run.pay_frequency} = 'monthly' AND (interval_unit IS NULL OR interval_unit IN ('monthly', 'custom'))
+          OR ${run.pay_frequency} = 'weekly' AND interval_unit = 'weekly'
+        )
+      ORDER BY requested_at
+    `) as { id: string; remaining_amount: string }[];
+
+    for (const adv of advances) {
+      if (remainingToDeduct <= 0) break;
+      const avail = Number(adv.remaining_amount);
+      const deduct = Math.min(remainingToDeduct, avail);
+      if (deduct <= 0) continue;
+      await sql`
+        INSERT INTO cash_advance_repayments (cash_advance_id, payroll_item_id, amount)
+        VALUES (${adv.id}::bigint, ${ki.item_id}::bigint, ${deduct})
+      `;
+      await sql`
+        UPDATE cash_advances
+        SET remaining_amount = remaining_amount - ${deduct}, updated_at = now()
+        WHERE id = ${adv.id}::bigint
+      `;
+      remainingToDeduct -= deduct;
+    }
+  }
+
   return { frozen: false };
 }

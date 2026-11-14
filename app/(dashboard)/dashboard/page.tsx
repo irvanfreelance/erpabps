@@ -12,7 +12,7 @@ export default async function DashboardPage() {
   if (!session) redirect("/login");
 
   // Hanya superadmin yang memiliki akses ke dasbor
-  const isSuperadmin = session.user.role === "superadmin" || Boolean(session.user.impersonatedBy);
+  const isSuperadmin = session.user.role === "superadmin";
   if (!isSuperadmin) {
     redirect("/attendances/clock");
   }

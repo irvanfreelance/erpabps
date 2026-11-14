@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const RE = {
   isoDate: /^\d{4}-\d{2}-\d{2}$/,
-  employeeNumber: /^CW\d{3}$/,
+  employeeNumber: /^[A-Z]{1,4}\d{2,6}$/,
   nik: /^(?!0{16})\d{16}$/,
   phoneId: /^(?:\+62|62|0)8[1-9][0-9]{6,11}$/,
   bankAccount: /^(?!0+$)\d{8,20}$/,

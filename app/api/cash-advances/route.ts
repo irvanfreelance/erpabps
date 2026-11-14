@@ -86,9 +86,12 @@ export async function POST(req: Request) {
     const rows = await sql`
       UPDATE cash_advances
       SET screening_status = ${status}, screened_by = ${actor}::bigint, screened_at = now(), updated_at = now()
-      WHERE id = ${body.id}::bigint
+      WHERE id = ${body.id}::bigint AND screening_status = 'submitted'
       RETURNING id, screening_status
     `;
+    if (!rows[0]) {
+      return NextResponse.json({ error: "Kasbon tidak ditemukan atau sudah di-screening" }, { status: 409 });
+    }
     await logAudit({ userId: g.session!.user.id, action: "screen", entityType: "cash_advance", entityId: body.id, valueAfter: { status } });
     return NextResponse.json(jsonSafe(rows[0]));
   }

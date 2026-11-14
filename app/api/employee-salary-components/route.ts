@@ -11,6 +11,27 @@ export async function POST(req: Request) {
   const parsed = salaryComponentAssignSchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);
   const sql = getDb();
+  const existingSameDate = await sql`
+    SELECT id FROM employee_salary_components
+    WHERE employee_id = ${parsed.data.employeeId}::bigint
+      AND salary_component_id = ${parsed.data.salaryComponentId}::bigint
+      AND effective_from = ${parsed.data.effectiveFrom}::date
+    LIMIT 1
+  `;
+  if (existingSameDate[0]) {
+    return NextResponse.json(
+      { error: "Komponen gaji dengan tanggal efektif yang sama sudah ada" },
+      { status: 409 },
+    );
+  }
+  await sql`
+    UPDATE employee_salary_components
+    SET effective_until = ${parsed.data.effectiveFrom}::date
+    WHERE employee_id = ${parsed.data.employeeId}::bigint
+      AND salary_component_id = ${parsed.data.salaryComponentId}::bigint
+      AND effective_from < ${parsed.data.effectiveFrom}::date
+      AND (effective_until IS NULL OR effective_until > ${parsed.data.effectiveFrom}::date)
+  `;
   const rows = await sql`
     INSERT INTO employee_salary_components (employee_id, salary_component_id, amount, effective_from, effective_until)
     VALUES (
@@ -33,6 +54,27 @@ export async function PATCH(req: Request) {
   if (!parsed.success) return zodError(parsed.error);
   const d = parsed.data;
   const sql = getDb();
+  const existingSameDate = await sql`
+    SELECT id FROM employee_salary_components
+    WHERE employee_id = ${parsed.data.employeeId}::bigint
+      AND salary_component_id = ${parsed.data.salaryComponentId}::bigint
+      AND effective_from = ${parsed.data.effectiveFrom}::date
+    LIMIT 1
+  `;
+  if (existingSameDate[0]) {
+    return NextResponse.json(
+      { error: "Komponen gaji dengan tanggal efektif yang sama sudah ada" },
+      { status: 409 },
+    );
+  }
+  await sql`
+    UPDATE employee_salary_components
+    SET effective_until = ${parsed.data.effectiveFrom}::date
+    WHERE employee_id = ${parsed.data.employeeId}::bigint
+      AND salary_component_id = ${parsed.data.salaryComponentId}::bigint
+      AND effective_from < ${parsed.data.effectiveFrom}::date
+      AND (effective_until IS NULL OR effective_until > ${parsed.data.effectiveFrom}::date)
+  `;
   const rows = await sql`
     UPDATE employee_salary_components SET
       salary_component_id = COALESCE(${d.salaryComponentId || null}::bigint, salary_component_id),

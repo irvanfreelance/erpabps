@@ -35,6 +35,7 @@ export async function GET(req: Request) {
     LEFT JOIN locations l ON l.id = e.location_id
     WHERE (${targetEmployeeId}::bigint IS NULL OR i.employee_id = ${targetEmployeeId}::bigint)
       AND (${runId}::bigint IS NULL OR i.payroll_run_id = ${runId}::bigint)
+      AND (${g.session!.user.role === "superadmin"} OR r.status IN ('approved', 'paid'))
     ORDER BY r.period_end DESC, e.full_name
   `;
   return NextResponse.json(jsonSafe({ rows }));

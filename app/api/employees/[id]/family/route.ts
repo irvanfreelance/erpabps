@@ -43,7 +43,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       relation = ${parsed.data.relation},
       full_name = ${parsed.data.fullName},
       birth_date = ${parsed.data.birthDate || null}::date
-    WHERE id = ${familyId}::bigint
+    WHERE id = ${familyId}::bigint AND employee_id = ${id}::bigint
     RETURNING id
   `;
   if (!rows[0]) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
@@ -61,7 +61,12 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   if (!(await canMutateEmployee(sql, g.session!.user, id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  await sql`DELETE FROM employee_family_members WHERE id = ${familyId}::bigint`;
+  const deleted = await sql`
+    DELETE FROM employee_family_members
+    WHERE id = ${familyId}::bigint AND employee_id = ${id}::bigint
+    RETURNING id
+  `;
+  if (!deleted[0]) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
   await logAudit({ userId: g.session!.user.id, action: "delete", entityType: "employee_family", entityId: familyId });
   return NextResponse.json({ ok: true });
 }

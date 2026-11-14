@@ -78,15 +78,20 @@ export async function POST(req: Request) {
 
   const { employeeId, overtimeDate, durationMinutes, hourlyRate, notes } = parsed.data;
 
-  // Validasi bawahan jika atasan (superordinat)
+  // Validasi bawahan jika atasan (superordinat): boleh untuk diri sendiri (menunggu superadmin) atau bawahan langsung
   if (user.role === "superordinat") {
     const myEmpId = user.employeeId ?? (await ownEmployeeId(sql, user));
-    const empCheck = await sql`
-      SELECT id FROM employees
-      WHERE id = ${employeeId}::bigint AND supervisor_employee_id = ${myEmpId}::bigint
-    `;
-    if (!empCheck[0]) {
-      return NextResponse.json({ error: "Anda hanya dapat mengajukan lembur untuk bawahan langsung Anda" }, { status: 403 });
+    if (!myEmpId) {
+      return NextResponse.json({ error: "Akun belum terhubung ke data karyawan" }, { status: 403 });
+    }
+    if (String(employeeId) !== String(myEmpId)) {
+      const empCheck = await sql`
+        SELECT id FROM employees
+        WHERE id = ${employeeId}::bigint AND supervisor_employee_id = ${myEmpId}::bigint
+      `;
+      if (!empCheck[0]) {
+        return NextResponse.json({ error: "Anda hanya dapat mengajukan lembur untuk diri sendiri atau bawahan langsung Anda" }, { status: 403 });
+      }
     }
   }
 
@@ -159,6 +164,7 @@ export async function PATCH(req: Request) {
     | {
         id: string;
         employee_id: string;
+        requested_by: string | null;
         status: string;
         supervisor_employee_id: string | null;
       }
@@ -169,10 +175,16 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: `Pengajuan sudah ${existing.status}` }, { status: 400 });
   }
 
-  // Jika superordinat, cek apakah dia atasan dari karyawan tsb
+  // Jika superordinat, cek apakah dia atasan dari karyawan tsb, bukan self-approval, dan bukan pengaju (maker != checker)
   if (user.role === "superordinat") {
     const myEmpId = user.employeeId ?? (await ownEmployeeId(sql, user));
-    if (!myEmpId || String(existing.supervisor_employee_id) !== String(myEmpId)) {
+    if (!myEmpId || String(existing.employee_id) === String(myEmpId)) {
+      return NextResponse.json({ error: "Tidak dapat menyetujui atau menolak lembur diri sendiri" }, { status: 403 });
+    }
+    if (existing.requested_by && String(existing.requested_by) === String(user.id)) {
+      return NextResponse.json({ error: "Pengaju lembur tidak boleh menyetujui pengajuan yang dibuatnya sendiri" }, { status: 403 });
+    }
+    if (String(existing.supervisor_employee_id) !== String(myEmpId)) {
       return NextResponse.json({ error: "Hanya atasan langsung atau HR Superadmin yang dapat menyetujui lembur" }, { status: 403 });
     }
   }

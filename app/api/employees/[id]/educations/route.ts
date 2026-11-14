@@ -48,7 +48,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       major = ${parsed.data.major ?? null},
       start_year = ${parsed.data.startYear ?? null},
       end_year = ${parsed.data.endYear ?? null}
-    WHERE id = ${educationId}::bigint
+    WHERE id = ${educationId}::bigint AND employee_id = ${id}::bigint
     RETURNING id
   `;
   if (!rows[0]) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
@@ -66,7 +66,12 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   if (!(await canMutateEmployee(sql, g.session!.user, id))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  await sql`DELETE FROM employee_educations WHERE id = ${educationId}::bigint`;
+  const deleted = await sql`
+    DELETE FROM employee_educations
+    WHERE id = ${educationId}::bigint AND employee_id = ${id}::bigint
+    RETURNING id
+  `;
+  if (!deleted[0]) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
   await logAudit({ userId: g.session!.user.id, action: "delete", entityType: "employee_education", entityId: educationId });
   return NextResponse.json({ ok: true });
 }
