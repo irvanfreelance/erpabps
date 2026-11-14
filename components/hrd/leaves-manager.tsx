@@ -27,14 +27,16 @@ export function LeavesManager({
   rows = [],
   userRole = "subordinat",
   canApprove = false,
+  currentEmployeeId = null,
 }: {
   rows: LeaveRow[];
   userRole: string;
   canApprove?: boolean;
+  currentEmployeeId?: string | null;
 }) {
   const router = useRouter();
   const [openModal, setOpenModal] = useState(false);
-  const [leaveType, setLeaveType] = useState<"cuti" | "izin" | "sakit">("cuti");
+  const [leaveType, setLeaveType] = useState<"cuti" | "izin" | "sakit" | "off">("cuti");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
@@ -188,6 +190,9 @@ export function LeavesManager({
                   </div>
                 );
               }
+              if (currentEmployeeId && String(r.employee_id) === String(currentEmployeeId)) {
+                return <span className="text-[11px] text-gray-400">Pengajuan sendiri</span>;
+              }
               const loading = decidingId === r.id;
               return (
                 <div className="flex items-center gap-1.5">
@@ -243,11 +248,12 @@ export function LeavesManager({
           <form onSubmit={handleApply} className="space-y-4 text-[13px]">
             <div>
               <label className="block text-[12px] font-semibold text-gray-700 mb-1">Jenis Pengajuan</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {[
                   { id: "cuti", label: "Cuti" },
                   { id: "izin", label: "Izin" },
                   { id: "sakit", label: "Sakit" },
+                  { id: "off", label: "Off" },
                 ].map((t) => (
                   <button
                     key={t.id}

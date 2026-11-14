@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "@/lib/auth/session";
 import { GET as list } from "@/app/api/payroll-runs/route";
 import { GET as groups } from "@/app/api/pay-groups/route";
 import { PayrollRunsWorkspace, RunRow, PayGroupOption } from "@/components/hrd/payroll-runs-workspace";
@@ -6,6 +8,10 @@ import { fromRoute } from "@/lib/api/from-route";
 export const metadata = { title: "Payroll Runs" };
 
 export default async function Page() {
+  const session = await getServerSession();
+  if (!session) redirect("/login");
+  if (session.user.role !== "superadmin") redirect("/employees");
+
   const [{ rows }, g] = await Promise.all([
     fromRoute<{ rows: RunRow[] }>(await list()),
     fromRoute<{ rows: PayGroupOption[] }>(await groups()),

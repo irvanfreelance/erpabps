@@ -82,6 +82,8 @@ export async function GET(request?: Request) {
       ROUND(((si.amount - si.cogs_amount) / NULLIF(si.cogs_amount, 0) * 100), 2)::numeric as margin_achieved_pct
     FROM sales_invoices si
     JOIN stock_parties sp ON si.party_id = sp.id
+    WHERE (${startDate || null}::date IS NULL OR si.created_at >= ${startDate || null}::timestamptz)
+      AND (${endDate || null}::date IS NULL OR si.created_at < (${endDate || null}::date + INTERVAL '1 day')::timestamptz)
     ORDER BY si.id DESC
   `;
 
@@ -95,14 +97,19 @@ export async function GET(request?: Request) {
   // 6. Total HPP Keluar
   const totalCogsRes = await sql`
     SELECT COALESCE(SUM(cogs_amount), 0)::numeric as total_cogs
-    FROM sales_invoices
+    FROM sales_invoices si
+    WHERE (${startDate || null}::date IS NULL OR si.created_at >= ${startDate || null}::timestamptz)
+      AND (${endDate || null}::date IS NULL OR si.created_at < (${endDate || null}::date + INTERVAL '1 day')::timestamptz)
   `;
   const totalCogs = Number(totalCogsRes[0]?.total_cogs ?? 0);
 
   // 7. Total Belanja Masuk (All-in)
   const totalPurchasesRes = await sql`
-    SELECT COALESCE(SUM(all_in_value), 0)::numeric as total_purchases
-    FROM goods_receipt_lines
+    SELECT COALESCE(SUM(grl.all_in_value), 0)::numeric as total_purchases
+    FROM goods_receipt_lines grl
+    JOIN goods_receipts gr ON gr.id = grl.receipt_id
+    WHERE (${startDate || null}::date IS NULL OR gr.created_at >= ${startDate || null}::timestamptz)
+      AND (${endDate || null}::date IS NULL OR gr.created_at < (${endDate || null}::date + INTERVAL '1 day')::timestamptz)
   `;
   const totalPurchases = Number(totalPurchasesRes[0]?.total_purchases ?? 0);
 

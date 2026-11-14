@@ -107,8 +107,17 @@ export async function POST(req: Request) {
           AND work_date BETWEEN ${updated.start_date}::date AND ${updated.end_date}::date
       `;
       await sql`
-        INSERT INTO shift_assignments (employee_id, work_date, day_status, notes)
-        SELECT ${updated.employee_id}::bigint, d::date, ${dayStatus}, ${noteText}
+        INSERT INTO shift_assignments (employee_id, work_date, shift_template_id, day_status, notes, assigned_by)
+        SELECT
+          ${updated.employee_id}::bigint,
+          d::date,
+          COALESCE(
+            (SELECT shift_template_id FROM shift_assignments WHERE employee_id = ${updated.employee_id}::bigint ORDER BY work_date DESC LIMIT 1),
+            (SELECT id FROM shift_templates ORDER BY id ASC LIMIT 1)
+          ),
+          ${dayStatus},
+          ${noteText},
+          ${g.session!.user.id}::bigint
         FROM generate_series(${updated.start_date}::date, ${updated.end_date}::date, '1 day'::interval) AS d
         WHERE NOT EXISTS (
           SELECT 1 FROM shift_assignments sa

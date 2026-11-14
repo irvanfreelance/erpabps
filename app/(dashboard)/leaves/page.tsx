@@ -23,6 +23,7 @@ export default async function Page() {
         rows={rows}
         userRole={session?.user.role || "subordinat"}
         canApprove={canApprove}
+        currentEmployeeId={session?.user.employeeId ?? null}
       />
     </div>
   );

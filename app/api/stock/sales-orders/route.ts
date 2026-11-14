@@ -20,14 +20,14 @@ export async function POST(req: Request) {
     const sql = getDb();
 
     const [allowNegSetting] = await sql`
-      SELECT sv.value_json
+      SELECT sv.value
       FROM setting_values sv
       JOIN setting_definitions sd ON sd.id = sv.definition_id
       WHERE sd.key = 'stock.allow_negative'
       ORDER BY sv.effective_from DESC NULLS LAST, sv.id DESC
       LIMIT 1
     `;
-    const allowNegative = allowNegSetting?.value_json === true || allowNegSetting?.value_json === "true";
+    const allowNegative = allowNegSetting?.value === true || allowNegSetting?.value === "true";
 
     if (!allowNegative) {
       for (const l of lines) {

@@ -61,7 +61,7 @@ export async function DELETE(
     const sql = getDb();
 
     const [entryRef] = await sql`
-      SELECT id FROM cash_fund_entries WHERE cash_fund_id = ${id} LIMIT 1
+      SELECT id FROM cash_fund_entries WHERE fund_id = ${id} LIMIT 1
     `;
     if (entryRef) {
       return NextResponse.json(

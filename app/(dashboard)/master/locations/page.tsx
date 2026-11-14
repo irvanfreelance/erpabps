@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getServerSession } from "@/lib/auth/session";
 import { GET as list } from "@/app/api/locations/route";
 import { LocationsWorkspace, type LocationRow } from "@/components/hrd/locations-workspace";
 import { fromRoute } from "@/lib/api/from-route";
@@ -7,6 +9,10 @@ import { btnPrimary } from "@/components/ui/button";
 export const metadata = { title: "Lokasi" };
 
 export default async function Page() {
+  const session = await getServerSession();
+  if (!session) redirect("/login");
+  if (session.user.role !== "superadmin") redirect("/employees");
+
   const { rows } = await fromRoute<{ rows: LocationRow[] }>(await list());
   return (
     <div>

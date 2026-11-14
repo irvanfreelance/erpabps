@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "@/lib/auth/session";
 import { GET as list } from "@/app/api/settings/route";
 import { RuleForm } from "@/components/hrd/rule-form";
 import { DataTable } from "@/components/data-table/data-table";
@@ -6,6 +8,10 @@ import { fromRoute } from "@/lib/api/from-route";
 export const metadata = { title: "Aturan" };
 
 export default async function Page() {
+  const session = await getServerSession();
+  if (!session) redirect("/login");
+  if (session.user.role !== "superadmin") redirect("/employees");
+
   const { definitions, values } = await fromRoute<{
     definitions: { id: string; key: string; label: string; default_value: unknown; is_locked: boolean }[];
     values: { id: string; key: string; scope_type: string; value: unknown; source_ref: string; reason: string }[];
