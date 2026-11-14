@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { StockCountsManager } from "@/components/stock/managers/stock-counts-manager";
+import { PostForm } from "@/components/stock/post-form";
 import { jsonSafe } from "@/lib/utils/serialize";
 
 export const metadata = { title: "Stock Opname" };
@@ -13,7 +14,8 @@ export default async function StockCountsPage() {
   if (!isSuperadmin) redirect("/employees");
 
   const sql = getDb();
-  const rows = await sql`
+  const [rows, bins, items] = await Promise.all([
+    sql`
     SELECT sc.id, sc.doc_no, bin.name as bin_name,
            sc.status, to_char(sc.counted_on, 'YYYY-MM-DD') as counted_on,
            u.nama as creator_name,
@@ -29,7 +31,10 @@ export default async function StockCountsPage() {
     LEFT JOIN stock_bins bin ON sc.bin_id = bin.id
     LEFT JOIN users u ON sc.created_by = u.id
     ORDER BY sc.id DESC
-  `;
+  `,
+    sql`SELECT id::text AS id, name AS label FROM stock_bins WHERE deleted_at IS NULL ORDER BY name`,
+    sql`SELECT id::text AS id, sku || ' — ' || name AS label FROM stock_items WHERE deleted_at IS NULL ORDER BY name`,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -40,6 +45,19 @@ export default async function StockCountsPage() {
         <p className="text-xs text-gray-500 m-0">Penghitungan fisik berkala di gudang dan freezer untuk penyesuaian selisih stok</p>
       </div>
       <div className="rounded-2xl border border-gray-200 bg-white p-3 md:p-5 shadow-xs">
+        <PostForm
+          title="Buat & Posting Opname"
+          docPrefix="OPN"
+          endpoint="/api/stock/counts"
+          hint="Selisih hitung versus saldo memakai biaya satuan saldo. Barang baru wajib diisi biaya satuan."
+          items={jsonSafe(items) as { id: string; label: string }[]}
+          lineMode="count"
+          fields={[
+            { name: "doc_no", label: "Nomor opname", kind: "text" },
+            { name: "bin_id", label: "Bin", kind: "select", options: jsonSafe(bins) as { id: string; label: string }[] },
+            { name: "counted_on", label: "Tanggal hitung", kind: "date" },
+          ]}
+        />
         <StockCountsManager rows={jsonSafe(rows) as never} />
       </div>
     </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileText, Loader2, Eye } from "lucide-react";
+import { Download, Loader2, Eye } from "lucide-react";
 import { exportPayslipPdf, PayslipItem, PayslipDetail } from "@/lib/utils/export-payslip-pdf";
 import { toast } from "sonner";
 import { DataTable, type Column } from "@/components/data-table/data-table";
+import { componentQtyLabel } from "@/lib/hrd/component-qty";
 import { Modal } from "@/components/hrd/modal";
 import { btnPrimary, btnSecondary } from "@/components/ui/button";
 
@@ -206,7 +207,7 @@ export function PayslipsTable({ rows }: { rows: PayslipItem[] }) {
                         )}
                       </td>
                       <td className="p-1.5 text-gray-500">
-                        {d.quantity > 1 ? `${d.quantity} x @${formatRupiah(d.unit_rate)}` : "-"}
+                        {componentQtyLabel(d.component_code, d.quantity, d.unit_rate) ?? "-"}
                       </td>
                       <td
                         className={`p-1.5 text-right font-medium ${

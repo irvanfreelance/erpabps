@@ -413,6 +413,7 @@ export type StockMoveRow = {
   value: number;
   source_type: string;
   source_id: string;
+  running_qty?: number | string;
 };
 
 export function StockMovesTable({ rows }: { rows: StockMoveRow[] }) {
@@ -434,6 +435,7 @@ export function StockMovesTable({ rows }: { rows: StockMoveRow[] }) {
         { key: "qty", label: "Kuantitas", render: (r) => `${Number(r.qty)} ${r.uom_code}`, numeric: true },
         { key: "unit_cost", label: "Biaya Satuan", render: (r) => fmtRp(r.unit_cost), numeric: true },
         { key: "value", label: "Total Nilai", render: (r) => fmtRp(r.value), numeric: true },
+        { key: "running_qty", label: "Saldo berjalan", render: (r) => r.running_qty == null ? "—" : String(r.running_qty), numeric: true },
         { key: "source_type", label: "Dokumen Asal", render: (r) => `${r.source_type} #${r.source_id}` },
       ]}
     />
