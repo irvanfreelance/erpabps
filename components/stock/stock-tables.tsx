@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import { Eye } from "lucide-react";
 import { DataTable } from "@/components/data-table/data-table";
-import { fmtDate, fmtRp } from "@/lib/utils/format";
+import { Modal } from "@/components/hrd/modal";
+import { btnSecondary } from "@/components/ui/button";
+import { fmtDate, fmtQty, fmtRp } from "@/lib/utils/format";
 
 // 1. Purchase Requests
 export type PurchaseRequestRow = {
@@ -43,10 +47,13 @@ export type PurchaseOrderRow = {
   status: string;
   creator_name: string;
   posted_at: string;
+  lines?: Array<{ id: number; item_name: string; sku: string; qty: number; price_hint: number | null }> | null;
 };
 
 export function PurchaseOrdersTable({ rows }: { rows: PurchaseOrderRow[] }) {
+  const [viewRow, setViewRow] = useState<PurchaseOrderRow | null>(null);
   return (
+    <>
     <DataTable
       data={rows}
       exportFilename="Pesanan Beli"
@@ -58,8 +65,41 @@ export function PurchaseOrdersTable({ rows }: { rows: PurchaseOrderRow[] }) {
         { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
         { key: "creator_name", label: "Purchasing Staff" },
         { key: "posted_at", label: "Waktu Posting" },
+        {
+          key: "actions",
+          label: "Aksi",
+          render: (r) => (
+            <button type="button" onClick={() => setViewRow(r)} className="rounded-lg border border-gray-200 p-1.5 text-blue-600 hover:bg-blue-50" title="Lihat detail pesanan">
+              <Eye size={13} />
+            </button>
+          ),
+        },
       ]}
     />
+    {viewRow && (
+      <Modal title={`Detail Pesanan Beli: ${viewRow.doc_no}`} onClose={() => setViewRow(null)}>
+        <div className="space-y-3 text-xs">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <div><span className="text-gray-500">Vendor</span><div className="font-semibold text-gray-900">{viewRow.vendor_name}</div></div>
+            <div><span className="text-gray-500">Permintaan</span><div className="font-semibold text-gray-900">{viewRow.request_no || "—"}</div></div>
+          </div>
+          <table className="w-full text-left">
+            <thead className="bg-gray-100 text-gray-700"><tr><th className="px-3 py-2">Barang</th><th className="px-3 py-2 text-right">Qty</th><th className="px-3 py-2 text-right">Perkiraan harga</th></tr></thead>
+            <tbody>
+              {(viewRow.lines || []).map((line) => (
+                <tr key={line.id} className="border-t">
+                  <td className="px-3 py-2">{line.item_name}<div className="text-[10px] text-gray-400">{line.sku}</div></td>
+                  <td className="px-3 py-2 text-right">{fmtQty(line.qty)}</td>
+                  <td className="px-3 py-2 text-right">{line.price_hint == null ? "—" : fmtRp(line.price_hint)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex justify-end"><button type="button" className={btnSecondary} onClick={() => setViewRow(null)}>Tutup</button></div>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
 
@@ -291,10 +331,13 @@ export type ShipmentRow = {
   total_cogs: number;
   status: string;
   posted_at: string;
+  lines?: Array<{ id: number; item_name: string; sku: string; qty: number; unit_cost: number; cogs_value: number }> | null;
 };
 
 export function ShipmentsTable({ rows }: { rows: ShipmentRow[] }) {
+  const [viewRow, setViewRow] = useState<ShipmentRow | null>(null);
   return (
+    <>
     <DataTable
       data={rows}
       exportFilename="Pengiriman Barang"
@@ -306,8 +349,41 @@ export function ShipmentsTable({ rows }: { rows: ShipmentRow[] }) {
         { key: "total_cogs", label: "HPP Stok Keluar", render: (r) => <span className="font-bold text-blue-700">{fmtRp(r.total_cogs)}</span>, numeric: true },
         { key: "status", label: "Status", render: (r) => <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 uppercase">{r.status}</span> },
         { key: "posted_at", label: "Waktu Posting" },
+        {
+          key: "actions",
+          label: "Aksi",
+          render: (r) => (
+            <button type="button" onClick={() => setViewRow(r)} className="rounded-lg border border-gray-200 p-1.5 text-blue-600 hover:bg-blue-50" title="Lihat detail pengiriman">
+              <Eye size={13} />
+            </button>
+          ),
+        },
       ]}
     />
+    {viewRow && (
+      <Modal title={`Detail Pengiriman: ${viewRow.doc_no}`} onClose={() => setViewRow(null)}>
+        <div className="space-y-3 text-xs">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <div><span className="text-gray-500">Order</span><div className="font-semibold text-gray-900">{viewRow.so_no}</div></div>
+            <div><span className="text-gray-500">Bin asal</span><div className="font-semibold text-gray-900">{viewRow.source_bin}</div></div>
+          </div>
+          <table className="w-full text-left">
+            <thead className="bg-gray-100 text-gray-700"><tr><th className="px-3 py-2">Barang</th><th className="px-3 py-2 text-right">Qty</th><th className="px-3 py-2 text-right">HPP</th></tr></thead>
+            <tbody>
+              {(viewRow.lines || []).map((line) => (
+                <tr key={line.id} className="border-t">
+                  <td className="px-3 py-2">{line.item_name}<div className="text-[10px] text-gray-400">{line.sku}</div></td>
+                  <td className="px-3 py-2 text-right">{fmtQty(line.qty)}</td>
+                  <td className="px-3 py-2 text-right">{fmtRp(line.cogs_value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex justify-end"><button type="button" className={btnSecondary} onClick={() => setViewRow(null)}>Tutup</button></div>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
 

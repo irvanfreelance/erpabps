@@ -20,7 +20,18 @@ export default async function ShipmentsPage() {
            to_char(sh.shipped_on, 'YYYY-MM-DD') as shipped_on,
            sh.status,
            COALESCE(SUM(shl.cogs_value), 0)::numeric as total_cogs,
-           to_char(sh.posted_at, 'YYYY-MM-DD HH24:MI') as posted_at
+           to_char(sh.posted_at, 'YYYY-MM-DD HH24:MI') as posted_at,
+           (SELECT json_agg(json_build_object(
+             'id', sl.id,
+             'item_name', si.name,
+             'sku', si.sku,
+             'qty', sl.qty::numeric,
+             'unit_cost', sl.unit_cost::numeric,
+             'cogs_value', sl.cogs_value::numeric
+           ) ORDER BY sl.id)
+            FROM shipment_lines sl
+            JOIN stock_items si ON si.id = sl.item_id
+            WHERE sl.shipment_id = sh.id) AS lines
     FROM shipments sh
     JOIN sales_orders so ON sh.order_id = so.id
     JOIN stock_bins sb ON sh.bin_id = sb.id

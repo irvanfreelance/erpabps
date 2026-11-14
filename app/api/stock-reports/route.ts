@@ -57,7 +57,7 @@ export async function GET(request?: Request) {
               WHEN 'consume' THEN -value WHEN 'ship' THEN -value
               ELSE value END)::numeric AS value
           FROM stock_moves
-          WHERE created_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta')
+          WHERE (created_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date
           GROUP BY item_id, bin_id
         ) mv
         JOIN stock_items si ON si.id = mv.item_id
@@ -95,7 +95,7 @@ export async function GET(request?: Request) {
             SELECT SUM(CASE WHEN e.entry_kind = 'topup' THEN e.amount ELSE -e.amount END)
             FROM cash_fund_entries e
             WHERE e.fund_id = cf.id
-              AND e.created_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta')
+              AND (e.created_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date
           ), 0)::numeric AS balance
         FROM cash_funds cf
         ORDER BY cf.id
@@ -117,6 +117,7 @@ export async function GET(request?: Request) {
             AND NOT EXISTS (
               SELECT 1 FROM stock_reversals r
               WHERE r.source_type = 'vendor_payment' AND r.source_id = vp.id
+                AND (${end}::date IS NULL OR (r.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
             )
         ), 0))
       END::numeric AS amount_open,
@@ -129,8 +130,9 @@ export async function GET(request?: Request) {
       AND NOT EXISTS (
         SELECT 1 FROM stock_reversals r
         WHERE r.source_type = 'goods_receipt' AND r.source_id = gr.id
+          AND (${end}::date IS NULL OR (r.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
       )
-      AND (${end}::date IS NULL OR gr.posted_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+      AND (${end}::date IS NULL OR (gr.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
     ORDER BY vb.id DESC
   `;
 
@@ -147,9 +149,10 @@ export async function GET(request?: Request) {
     WHERE NOT EXISTS (
         SELECT 1 FROM stock_reversals r
         WHERE r.source_type = 'sales_invoice' AND r.source_id = si.id
+          AND (${end}::date IS NULL OR (r.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
       )
-      AND (${start}::date IS NULL OR sh.posted_at >= (${start}::date AT TIME ZONE 'Asia/Jakarta'))
-      AND (${end}::date IS NULL OR sh.posted_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+      AND (${start}::date IS NULL OR (sh.posted_at AT TIME ZONE 'Asia/Jakarta')::date >= ${start}::date)
+      AND (${end}::date IS NULL OR (sh.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
     ORDER BY si.id DESC
   `;
 
@@ -161,9 +164,10 @@ export async function GET(request?: Request) {
       AND NOT EXISTS (
         SELECT 1 FROM stock_reversals r
         WHERE r.source_type = 'goods_receipt' AND r.source_id = gr.id
+          AND (${end}::date IS NULL OR (r.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
       )
-      AND (${start}::date IS NULL OR gr.posted_at >= (${start}::date AT TIME ZONE 'Asia/Jakarta'))
-      AND (${end}::date IS NULL OR gr.posted_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+      AND (${start}::date IS NULL OR (gr.posted_at AT TIME ZONE 'Asia/Jakarta')::date >= ${start}::date)
+      AND (${end}::date IS NULL OR (gr.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
   `;
 
   const cogsRes = await sql`
@@ -174,9 +178,10 @@ export async function GET(request?: Request) {
       AND NOT EXISTS (
         SELECT 1 FROM stock_reversals r
         WHERE r.source_type = 'shipment' AND r.source_id = sh.id
+          AND (${end}::date IS NULL OR (r.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
       )
-      AND (${start}::date IS NULL OR sh.posted_at >= (${start}::date AT TIME ZONE 'Asia/Jakarta'))
-      AND (${end}::date IS NULL OR sh.posted_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+      AND (${start}::date IS NULL OR (sh.posted_at AT TIME ZONE 'Asia/Jakarta')::date >= ${start}::date)
+      AND (${end}::date IS NULL OR (sh.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
   `;
 
   const openingRes = start
@@ -189,16 +194,23 @@ export async function GET(request?: Request) {
           END
         ), 0)::numeric AS total
         FROM stock_moves
-        WHERE created_at < (${start}::date AT TIME ZONE 'Asia/Jakarta')
+        WHERE (created_at AT TIME ZONE 'Asia/Jakarta')::date < ${start}::date
       `
     : [{ total: 0 }];
 
   const countRes = await sql`
-    SELECT COALESCE(SUM(value), 0)::numeric AS total
-    FROM stock_moves
-    WHERE move_kind = 'count'
-      AND (${start}::date IS NULL OR created_at >= (${start}::date AT TIME ZONE 'Asia/Jakarta'))
-      AND (${end}::date IS NULL OR created_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+    SELECT COALESCE(SUM(sm.value), 0)::numeric AS total
+    FROM stock_moves sm
+    LEFT JOIN stock_reversals rev
+      ON sm.move_kind = 'reversal'
+     AND sm.source_type = 'stock_reversal'
+     AND rev.id = sm.source_id
+    WHERE (
+        sm.move_kind = 'count'
+        OR (sm.move_kind = 'reversal' AND rev.source_type = 'stock_count')
+      )
+      AND (${start}::date IS NULL OR (sm.created_at AT TIME ZONE 'Asia/Jakarta')::date >= ${start}::date)
+      AND (${end}::date IS NULL OR (sm.created_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
   `;
 
   const channelRaw = await sql`
@@ -212,12 +224,13 @@ export async function GET(request?: Request) {
       AND NOT EXISTS (
         SELECT 1 FROM stock_reversals r
         WHERE r.source_type = 'sales_invoice' AND r.source_id = si.id
+          AND (${end}::date IS NULL OR (r.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
       )
       AND EXISTS (
         SELECT 1 FROM shipments sh
         WHERE sh.id = si.shipment_id
-          AND (${start}::date IS NULL OR sh.posted_at >= (${start}::date AT TIME ZONE 'Asia/Jakarta'))
-          AND (${end}::date IS NULL OR sh.posted_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+          AND (${start}::date IS NULL OR (sh.posted_at AT TIME ZONE 'Asia/Jakarta')::date >= ${start}::date)
+          AND (${end}::date IS NULL OR (sh.posted_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
       )
     WHERE sp.party_kind IN ('internal_outlet', 'third_party_outlet', 'catering')
     GROUP BY sp.id, sp.name
@@ -232,8 +245,8 @@ export async function GET(request?: Request) {
       COALESCE(SUM(CASE WHEN sm.move_kind = 'produce' THEN sm.value ELSE 0 END), 0)::numeric AS produksi,
       COALESCE(SUM(CASE WHEN sm.move_kind = 'ship' THEN sm.value ELSE 0 END), 0)::numeric AS penjualan_hpp
     FROM stock_moves sm
-    WHERE (${start}::date IS NULL OR sm.created_at >= (${start}::date AT TIME ZONE 'Asia/Jakarta'))
-      AND (${end}::date IS NULL OR sm.created_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+    WHERE (${start}::date IS NULL OR (sm.created_at AT TIME ZONE 'Asia/Jakarta')::date >= ${start}::date)
+      AND (${end}::date IS NULL OR (sm.created_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
     GROUP BY 1, 2
     ORDER BY full_date ASC
   `;
