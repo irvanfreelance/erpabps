@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { revalidateStockPath } from "@/app/(dashboard)/stock/revalidate-stock";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Modal } from "@/components/hrd/modal";
@@ -35,6 +36,7 @@ export function PostForm({
   docPrefix: string;
 }) {
   const router = useRouter();
+  const [, startRefresh] = useTransition();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -112,7 +114,12 @@ export function PostForm({
       if (!res.ok) throw new Error(data.error || "Gagal memposting");
       toast.success("Dokumen berhasil diposting");
       setOpen(false);
-      router.refresh();
+      try {
+        await revalidateStockPath(window.location.pathname);
+      } catch {
+        /* daftar tetap dimuat ulang */
+      }
+      startRefresh(() => router.refresh());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal memposting");
     } finally {

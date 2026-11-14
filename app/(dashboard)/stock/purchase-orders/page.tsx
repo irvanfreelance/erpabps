@@ -18,7 +18,17 @@ export default async function PurchaseOrdersPage() {
     SELECT po.id, po.doc_no, pr.doc_no as request_no, sp.name as vendor_name,
            po.status, po.source_unit, u.nama as creator_name,
            to_char(po.posted_at, 'YYYY-MM-DD HH24:MI') as posted_at,
-           COUNT(pol.id)::int as item_count
+           COUNT(pol.id)::int as item_count,
+           (SELECT json_agg(json_build_object(
+             'id', pol2.id,
+             'item_name', si.name,
+             'sku', si.sku,
+             'qty', pol2.qty::numeric,
+             'price_hint', pol2.price_hint::numeric
+           ) ORDER BY pol2.id)
+            FROM purchase_order_lines pol2
+            JOIN stock_items si ON si.id = pol2.item_id
+            WHERE pol2.order_id = po.id) AS lines
     FROM purchase_orders po
     JOIN stock_parties sp ON po.vendor_id = sp.id
     JOIN users u ON po.created_by = u.id

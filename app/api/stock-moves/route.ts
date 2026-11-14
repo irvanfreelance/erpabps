@@ -48,8 +48,8 @@ export async function GET(request?: Request) {
     SELECT id, item_id, sku, item_name, bin_id, bin_code, bin_name, move_kind,
            qty, value, unit_cost, source_type, source_id, created_at, running_qty::numeric
     FROM running
-    WHERE (${start}::date IS NULL OR created_at >= (${start}::date AT TIME ZONE 'Asia/Jakarta'))
-      AND (${end}::date IS NULL OR created_at < ((${end}::date + 1) AT TIME ZONE 'Asia/Jakarta'))
+    WHERE (${start}::date IS NULL OR (created_at AT TIME ZONE 'Asia/Jakarta')::date >= ${start}::date)
+      AND (${end}::date IS NULL OR (created_at AT TIME ZONE 'Asia/Jakarta')::date <= ${end}::date)
       AND (${itemId}::bigint IS NULL OR item_id = ${itemId}::bigint)
       AND (${binId}::bigint IS NULL OR bin_id = ${binId}::bigint)
     ORDER BY created_at DESC, id DESC

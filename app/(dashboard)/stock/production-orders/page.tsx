@@ -21,11 +21,12 @@ export default async function ProductionOrdersPage() {
            si.name as output_item_name,
            bin.name as output_bin_name,
            (SELECT json_agg(json_build_object(
-             'id', bl.id,
+             'id', pl.id,
              'item_name', ing.name,
              'sku', ing.sku,
-             'qty', bl.qty::numeric
-           )) FROM stock_bom_lines bl JOIN stock_items ing ON bl.item_id = ing.id WHERE bl.bom_id = mo.bom_id) as ingredients
+             'qty', pl.qty::numeric,
+             'value', pl.value::numeric
+           ) ORDER BY pl.id) FROM production_lines pl JOIN stock_items ing ON pl.item_id = ing.id WHERE pl.order_id = mo.id) as ingredients
     FROM production_orders mo
     JOIN stock_boms bom ON mo.bom_id = bom.id
     JOIN stock_items si ON bom.output_item_id = si.id

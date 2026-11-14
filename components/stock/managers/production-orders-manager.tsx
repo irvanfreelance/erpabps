@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { Modal } from "@/components/hrd/modal";
-import { fmtDate, fmtRp, fmtQty } from "@/lib/utils/format";
+import { fmtRp, fmtQty } from "@/lib/utils/format";
 import { Eye } from "lucide-react";
 import { btnSecondary } from "@/components/ui/button";
 
@@ -20,6 +20,7 @@ export type ProductionOrderRow = {
     item_name: string;
     sku: string;
     qty: number;
+    value?: number;
   }>;
 };
 
@@ -88,6 +89,7 @@ export function ProductionOrdersManager({ rows }: { rows: ProductionOrderRow[] }
                       <th className="py-2 px-3">Bahan Mentah</th>
                       <th className="py-2 px-3">SKU</th>
                       <th className="py-2 px-3 text-right">Kuantitas Terpakai</th>
+                      <th className="py-2 px-3 text-right">Nilai</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -96,6 +98,7 @@ export function ProductionOrdersManager({ rows }: { rows: ProductionOrderRow[] }
                         <td className="py-2.5 px-3 font-medium text-gray-900">{ing.item_name}</td>
                         <td className="py-2.5 px-3 text-gray-500">{ing.sku}</td>
                         <td className="py-2.5 px-3 text-right font-bold text-amber-800">{fmtQty(ing.qty)}</td>
+                        <td className="py-2.5 px-3 text-right text-gray-700">{ing.value == null ? "—" : fmtRp(ing.value)}</td>
                       </tr>
                     ))}
                   </tbody>
