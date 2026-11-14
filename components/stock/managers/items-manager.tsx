@@ -40,9 +40,10 @@ export function ItemsManager({
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
   const [uomId, setUomId] = useState(uoms[0]?.id || "");
-  const [itemKind, setItemKind] = useState("raw_material");
+  const [itemKind, setItemKind] = useState("material");
   const [isStocked, setIsStocked] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const openAdd = () => {
     setEditingId(null);
@@ -50,8 +51,9 @@ export function ItemsManager({
     setName("");
     setCategoryId(categories[0]?.id || "");
     setUomId(uoms[0]?.id || "");
-    setItemKind("raw_material");
+    setItemKind("material");
     setIsStocked(true);
+    setFormError(null);
     setModalOpen(true);
   };
 
@@ -63,13 +65,17 @@ export function ItemsManager({
     setUomId(row.uom_id);
     setItemKind(row.item_kind);
     setIsStocked(Boolean(row.is_stocked));
+    setFormError(null);
     setModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (!sku.trim() || !name.trim() || !categoryId || !uomId) {
-      toast.error("SKU, nama barang, kategori, dan satuan wajib diisi");
+      const msg = "SKU, nama barang, kategori, dan satuan wajib diisi";
+      setFormError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -90,14 +96,22 @@ export function ItemsManager({
           is_stocked: isStocked,
         }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: { error?: string } = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: `HTTP ${res.status}: ${text.slice(0, 120)}` };
+      }
       if (!res.ok) throw new Error(data.error || "Gagal menyimpan data");
 
       toast.success(editingId ? "Barang berhasil diperbarui" : "Barang berhasil ditambahkan");
       setModalOpen(false);
       router.refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Terjadi kesalahan");
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -202,6 +216,11 @@ export function ItemsManager({
           onClose={() => setModalOpen(false)}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {formError}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">SKU / Kode Barang</label>

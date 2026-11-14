@@ -61,6 +61,21 @@ export async function DELETE(
   try {
     const sql = getDb();
 
+    const [ref] = await sql`
+      SELECT 1 AS used
+      WHERE EXISTS (SELECT 1 FROM purchase_orders WHERE vendor_id = ${id})
+         OR EXISTS (SELECT 1 FROM vendor_bills WHERE vendor_id = ${id})
+         OR EXISTS (SELECT 1 FROM sales_orders WHERE party_id = ${id})
+         OR EXISTS (SELECT 1 FROM shipments WHERE party_id = ${id})
+         OR EXISTS (SELECT 1 FROM sales_invoices WHERE party_id = ${id})
+    `;
+    if (ref) {
+      return NextResponse.json(
+        { error: "Rekanan tidak dapat dihapus karena masih digunakan oleh dokumen transaksi" },
+        { status: 409 }
+      );
+    }
+
     const [deleted] = await sql`
       UPDATE stock_parties
       SET deleted_at = NOW()

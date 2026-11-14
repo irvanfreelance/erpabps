@@ -18,6 +18,42 @@ export async function POST(req: Request) {
     }
 
     const sql = getDb();
+
+    const [allowNegSetting] = await sql`
+      SELECT sv.value_json
+      FROM setting_values sv
+      JOIN setting_definitions sd ON sd.id = sv.definition_id
+      WHERE sd.key = 'stock.allow_negative'
+      ORDER BY sv.effective_from DESC NULLS LAST, sv.id DESC
+      LIMIT 1
+    `;
+    const allowNegative = allowNegSetting?.value_json === true || allowNegSetting?.value_json === "true";
+
+    if (!allowNegative) {
+      for (const l of lines) {
+        if (l.item_id && Number(l.qty) > 0) {
+          const [bal] = await sql`
+            SELECT COALESCE(SUM(qty), 0)::numeric AS available,
+                   (SELECT name FROM stock_items WHERE id = ${Number(l.item_id)}) AS item_name
+            FROM stock_balances
+            WHERE item_id = ${Number(l.item_id)}
+          `;
+          const available = Number(bal?.available || 0);
+          if (Number(l.qty) > available) {
+            return NextResponse.json(
+              {
+                error: `Stok "${bal?.item_name || l.item_id}" tidak mencukupi (tersedia: ${available}, diminta: ${Number(l.qty)})`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
+    }
+
+    const rawUserId = session?.user?.id ? Number(session.user.id) : NaN;
+    const createdBy = Number.isFinite(rawUserId) ? rawUserId : null;
+
     const [inserted] = await sql`
       INSERT INTO sales_orders (doc_no, party_id, ordered_on, status, created_by)
       VALUES (
@@ -25,7 +61,7 @@ export async function POST(req: Request) {
         ${Number(party_id)},
         ${String(ordered_on)},
         'draft',
-        ${session?.user?.id ? Number(session.user.id) : null}
+        ${createdBy}
       )
       RETURNING id, doc_no, status
     `;

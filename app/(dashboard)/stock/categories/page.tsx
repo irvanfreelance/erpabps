@@ -9,7 +9,7 @@ export const metadata = { title: "Kategori Barang" };
 export default async function StockCategoriesPage() {
   const session = await getServerSession();
   if (!session) redirect("/login");
-  const isSuperadmin = session.user.role === "superadmin" || Boolean(session.user.impersonatedBy);
+  const isSuperadmin = session.user.role === "superadmin";
   if (!isSuperadmin) redirect("/employees");
 
   const sql = getDb();

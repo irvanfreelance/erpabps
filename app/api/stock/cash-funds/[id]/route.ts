@@ -16,7 +16,7 @@ export async function PATCH(
   const { id } = await params;
   try {
     const body = await req.json();
-    const { code, name, balance } = body;
+    const { code, name } = body;
     if (!code || !name) {
       return NextResponse.json({ error: "Kode dan nama kas wajib diisi" }, { status: 400 });
     }
@@ -25,8 +25,7 @@ export async function PATCH(
     const [updated] = await sql`
       UPDATE cash_funds
       SET code = ${String(code).trim().toUpperCase()},
-          name = ${String(name).trim()},
-          balance = ${Number(balance || 0)}
+          name = ${String(name).trim()}
       WHERE id = ${id}
       RETURNING id, code, name, balance::numeric
     `;
@@ -60,6 +59,16 @@ export async function DELETE(
   const { id } = await params;
   try {
     const sql = getDb();
+
+    const [entryRef] = await sql`
+      SELECT id FROM cash_fund_entries WHERE cash_fund_id = ${id} LIMIT 1
+    `;
+    if (entryRef) {
+      return NextResponse.json(
+        { error: "Kas tidak dapat dihapus karena sudah memiliki riwayat mutasi/entri" },
+        { status: 409 }
+      );
+    }
 
     const [deleted] = await sql`
       DELETE FROM cash_funds

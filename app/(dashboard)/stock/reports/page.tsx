@@ -103,7 +103,7 @@ export default async function StockDashboardPage({
 }) {
   const session = await getServerSession();
   if (!session) redirect("/login");
-  const isSuperadmin = session.user.role === "superadmin" || Boolean(session.user.impersonatedBy);
+  const isSuperadmin = session.user.role === "superadmin";
   if (!isSuperadmin) {
     return (
       <div className="flex h-96 flex-col items-center justify-center text-center">

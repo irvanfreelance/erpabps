@@ -9,7 +9,7 @@ export const metadata = { title: "Penerimaan Barang (GRN)" };
 export default async function GoodsReceiptsPage() {
   const session = await getServerSession();
   if (!session) redirect("/login");
-  const isSuperadmin = session.user.role === "superadmin" || Boolean(session.user.impersonatedBy);
+  const isSuperadmin = session.user.role === "superadmin";
   if (!isSuperadmin) redirect("/employees");
 
   const sql = getDb();

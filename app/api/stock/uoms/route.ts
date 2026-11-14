@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const sql = getDb();
     const [inserted] = await sql`
       INSERT INTO stock_uoms (code, name)
-      VALUES (${String(code).trim().toLowerCase()}, ${String(name).trim()})
+      VALUES (${String(code).trim().toUpperCase()}, ${String(name).trim()})
       RETURNING id, code, name
     `;
 
@@ -48,7 +48,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json(jsonSafe({ data: inserted }), { status: 201 });
   } catch (err: unknown) {
+    const code = typeof err === "object" && err !== null && "code" in err ? (err as { code?: string }).code : undefined;
     const message = err instanceof Error ? err.message : "Gagal menambah satuan";
+    if (code === "23505" || message.includes("duplicate key")) {
+      return NextResponse.json({ error: "Kode satuan sudah dipakai" }, { status: 409 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

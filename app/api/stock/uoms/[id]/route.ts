@@ -24,7 +24,7 @@ export async function PATCH(
     const sql = getDb();
     const [updated] = await sql`
       UPDATE stock_uoms
-      SET code = ${String(code).trim().toLowerCase()},
+      SET code = ${String(code).trim().toUpperCase()},
           name = ${String(name).trim()}
       WHERE id = ${id}
       RETURNING id, code, name
@@ -44,7 +44,11 @@ export async function PATCH(
 
     return NextResponse.json(jsonSafe({ data: updated }));
   } catch (err: unknown) {
+    const errCode = typeof err === "object" && err !== null && "code" in err ? (err as { code?: string }).code : undefined;
     const message = err instanceof Error ? err.message : "Gagal mengubah satuan UOM";
+    if (errCode === "23505" || message.includes("duplicate key")) {
+      return NextResponse.json({ error: "Kode satuan sudah dipakai" }, { status: 409 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

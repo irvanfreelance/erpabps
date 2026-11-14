@@ -17,6 +17,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Nomor dokumen, unit asal, tanggal, dan minimal 1 item belanja wajib diisi" }, { status: 400 });
     }
 
+    const rawUserId = session?.user?.id ? Number(session.user.id) : NaN;
+    const createdBy = Number.isFinite(rawUserId) ? rawUserId : null;
+
     const sql = getDb();
     const [inserted] = await sql`
       INSERT INTO purchase_requests (doc_no, source_unit, needed_on, status, created_by, posted_at)
@@ -25,8 +28,8 @@ export async function POST(req: Request) {
         ${String(source_unit).trim().toLowerCase()},
         ${String(needed_on)},
         'draft',
-        ${session?.user?.id ? Number(session.user.id) : null},
-        NOW()
+        ${createdBy},
+        NULL
       )
       RETURNING id, doc_no, status
     `;
