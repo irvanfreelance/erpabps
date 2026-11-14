@@ -135,7 +135,9 @@ export function LeavesManager({
               ? "bg-purple-100 text-purple-800"
               : r.leave_type === "sakit"
                 ? "bg-blue-100 text-blue-800"
-                : "bg-amber-100 text-amber-800"
+                : r.leave_type === "off"
+                  ? "bg-slate-100 text-slate-800"
+                  : "bg-amber-100 text-amber-800"
           }`}
         >
           {r.leave_type.toUpperCase()}

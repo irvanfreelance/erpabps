@@ -61,11 +61,13 @@ export async function DELETE(
     const sql = getDb();
 
     const [entryRef] = await sql`
-      SELECT id FROM cash_fund_entries WHERE fund_id = ${id} LIMIT 1
+      SELECT 1 AS used
+      WHERE EXISTS (SELECT 1 FROM cash_fund_entries WHERE fund_id = ${id})
+         OR EXISTS (SELECT 1 FROM vendor_payments WHERE fund_id = ${id})
     `;
     if (entryRef) {
       return NextResponse.json(
-        { error: "Kas tidak dapat dihapus karena sudah memiliki riwayat mutasi/entri" },
+        { error: "Kas tidak dapat dihapus karena sudah memiliki riwayat mutasi atau pembayaran" },
         { status: 409 }
       );
     }

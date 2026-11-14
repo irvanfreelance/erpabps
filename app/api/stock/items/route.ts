@@ -66,7 +66,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json(jsonSafe({ data: inserted }), { status: 201 });
   } catch (err: unknown) {
+    const errCode = typeof err === "object" && err !== null && "code" in err ? (err as { code?: string }).code : undefined;
     const message = err instanceof Error ? err.message : "Gagal menambah barang";
+    if (errCode === "23505" || message.includes("duplicate key")) {
+      return NextResponse.json({ error: "SKU sudah dipakai" }, { status: 409 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
