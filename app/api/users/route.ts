@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   if (g.error) return g.error;
   const parsed = createUserSchema.safeParse(await req.json());
   if (!parsed.success) return zodError(parsed.error);
-  const passwordHash = await hash(parsed.data.password, 12);
+  const passwordHash = parsed.data.password ? await hash(parsed.data.password, 12) : null;
   try {
     const sql = getDb();
     const rows = await sql`

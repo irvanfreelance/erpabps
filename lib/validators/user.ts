@@ -5,7 +5,7 @@ export const ROLES = ["superadmin", "superordinat", "subordinat"] as const;
 export const createUserSchema = z.object({
   nama: z.string().min(2).max(200),
   email: z.string().email(),
-  password: z.string().min(8).max(100),
+  password: z.string().min(8, "Password minimal 8 karakter").max(100, "Password maksimal 100 karakter").optional().or(z.literal("")),
   role: z.enum(ROLES).default("subordinat"),
   isActive: z.boolean().optional().default(true),
 });
@@ -13,7 +13,7 @@ export const createUserSchema = z.object({
 export const updateUserSchema = z.object({
   nama: z.string().min(2).max(200).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(8).max(100).optional().or(z.literal("")),
+  password: z.string().min(8, "Password minimal 8 karakter").max(100, "Password maksimal 100 karakter").optional().or(z.literal("")),
   role: z.enum(ROLES).optional(),
   isActive: z.boolean().optional(),
 });

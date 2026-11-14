@@ -13,7 +13,16 @@ export function ScreeningTable({ rows }: { rows: Row[] }) {
         { key: "full_name", label: "Nama" },
         { key: "amount", label: "Nominal", money: true },
         { key: "screening_status", label: "Status" },
-        { key: "id", label: "Aksi", render: (r) => <ScreenActions id={String(r.id)} /> },
+        {
+          key: "id",
+          label: "Aksi",
+          render: (r) =>
+            r.screening_status === "submitted" || r.screening_status === "pending" ? (
+              <ScreenActions id={String(r.id)} />
+            ) : (
+              <span className="text-xs text-gray-400">Selesai ({r.screening_status})</span>
+            ),
+        },
       ]}
     />
   );

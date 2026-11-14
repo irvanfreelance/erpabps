@@ -138,13 +138,6 @@ export function UsersManager({ rows }: { rows: UserRow[] }) {
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             />
-            <label className="mb-1 block text-[12px]">{editing ? "Password baru (kosongkan jika tidak diubah)" : "Password"}</label>
-            <input
-              type="password"
-              className="mb-2 w-full rounded-xl border border-[#ddd] px-3 py-2 text-[13px]"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            />
             <label className="mb-1 block text-[12px]">Role</label>
             <SearchSelect
               className="mb-3"
