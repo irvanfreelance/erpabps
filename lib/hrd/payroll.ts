@@ -162,8 +162,9 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
       const amount = Number(c.amount);
       switch (c.component_type) {
         case "earning_fixed": {
-          details.push({ code: c.code, amount, qty: 1, rate: amount });
-          earnings += amount;
+          const fixedAmt = run.pay_frequency === "weekly" ? Math.round(amount / 4) : amount;
+          details.push({ code: c.code, amount: fixedAmt, qty: 1, rate: fixedAmt });
+          earnings += fixedAmt;
           break;
         }
         case "earning_hourly": {

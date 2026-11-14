@@ -99,13 +99,21 @@ export async function POST(req: Request) {
       const dayStatus = updated.leave_type === "sakit" ? "off_sakit" : updated.leave_type === "izin" ? "off_izin" : "off";
       const noteText = `Cuti/Izin (${updated.leave_type}) disetujui`;
       await sql`
+        UPDATE shift_assignments
+        SET day_status = ${dayStatus},
+            notes = ${noteText},
+            updated_at = now()
+        WHERE employee_id = ${updated.employee_id}::bigint
+          AND work_date BETWEEN ${updated.start_date}::date AND ${updated.end_date}::date
+      `;
+      await sql`
         INSERT INTO shift_assignments (employee_id, work_date, day_status, notes)
         SELECT ${updated.employee_id}::bigint, d::date, ${dayStatus}, ${noteText}
         FROM generate_series(${updated.start_date}::date, ${updated.end_date}::date, '1 day'::interval) AS d
-        ON CONFLICT (employee_id, work_date) DO UPDATE SET
-          day_status = EXCLUDED.day_status,
-          notes = EXCLUDED.notes,
-          updated_at = now()
+        WHERE NOT EXISTS (
+          SELECT 1 FROM shift_assignments sa
+          WHERE sa.employee_id = ${updated.employee_id}::bigint AND sa.work_date = d::date
+        )
       `;
     }
 

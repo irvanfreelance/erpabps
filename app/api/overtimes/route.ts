@@ -10,8 +10,9 @@ import { jsonSafe } from "@/lib/utils/serialize";
 const createSchema = z.object({
   employeeId: z.string().min(1),
   overtimeDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   durationMinutes: z.number().int().positive(),
-  hourlyRate: z.number().nonnegative().optional(),
   notes: z.string().optional(),
 });
 
@@ -62,21 +63,21 @@ export async function POST(req: Request) {
   const sql = getDb();
   const user = g.session!.user;
 
-  // Atasan (superordinat) mengajukan lembur untuk bawahannya, atau HR superadmin mengajukan secara backdate
-  if (user.role === "subordinat") {
-    return NextResponse.json(
-      { error: "Pengajuan lembur diajukan oleh atasan langsung atau HR Superadmin" },
-      { status: 403 }
-    );
-  }
-
   const json = await req.json().catch(() => null);
   const parsed = createSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Data tidak valid" }, { status: 400 });
   }
 
-  const { employeeId, overtimeDate, durationMinutes, hourlyRate, notes } = parsed.data;
+  const { employeeId, overtimeDate, startTime, endTime, durationMinutes, notes } = parsed.data;
+
+  // Validasi pengajuan oleh subordinat: hanya untuk diri sendiri
+  if (user.role === "subordinat") {
+    const myEmpId = user.employeeId ?? (await ownEmployeeId(sql, user));
+    if (!myEmpId || String(employeeId) !== String(myEmpId)) {
+      return NextResponse.json({ error: "Anda hanya dapat mengajukan lembur untuk diri sendiri" }, { status: 403 });
+    }
+  }
 
   // Validasi bawahan jika atasan (superordinat): boleh untuk diri sendiri (menunggu superadmin) atau bawahan langsung
   if (user.role === "superordinat") {
@@ -102,17 +103,16 @@ export async function POST(req: Request) {
 
   if (!emp) return NextResponse.json({ error: "Karyawan tidak ditemukan" }, { status: 404 });
 
-  // Ambil rate lembur jika tidak ditentukan
-  let rate = hourlyRate;
-  if (!rate) {
-    const settings = await resolvePayrollSettings(sql, overtimeDate, {
-      employeeId: emp.id,
-      positionId: emp.position_id,
-      locationId: emp.location_id,
-      payGroupId: emp.pay_group_id,
-    });
-    rate = Number(settings["overtime.hourly_rate"] ?? 25000);
-  }
+  // Ambil rate lembur dari pengaturan (tidak bisa di-override)
+  const settings = await resolvePayrollSettings(sql, overtimeDate, {
+    employeeId: emp.id,
+    positionId: emp.position_id,
+    locationId: emp.location_id,
+    payGroupId: emp.pay_group_id,
+  });
+  const rate = Number(settings["overtime.hourly_rate"] ?? 25000);
+  const timePrefix = startTime && endTime ? `[${startTime} - ${endTime}] ` : "";
+  const combinedNotes = `${timePrefix}${notes?.trim() ?? ""}`.trim() || null;
 
   const payableHours = Number((durationMinutes / 60).toFixed(2));
 
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
     ) VALUES (
       ${employeeId}::bigint, ${overtimeDate}::date, ${durationMinutes},
       'flat_per_hour', ${rate}, ${payableHours}, 'supervisor_assignment', 'pending',
-      ${user.id}::bigint, ${notes ?? null}
+      ${user.id}::bigint, ${combinedNotes}
     ) RETURNING id
   `;
 

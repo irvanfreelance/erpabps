@@ -1,5 +1,7 @@
 "use client";
 
+import { Modal } from "@/components/hrd/modal";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -26,6 +28,7 @@ export function HolidaysManager({
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [openModal, setOpenModal] = useState(false);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -55,6 +58,7 @@ export function HolidaysManager({
       toast.success("Hari libur berhasil disimpan!");
       setHolidayDate("");
       setName("");
+      setOpenModal(false);
       router.refresh();
     } catch {
       toast.error("Terjadi kesalahan jaringan.");
@@ -151,7 +155,15 @@ export function HolidaysManager({
     <div className="space-y-6">
       {/* Form Tambah Hari Libur (Superadmin / SO) */}
       {canManage && (
-        <form onSubmit={handleAdd} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm max-w-xl space-y-4">
+        <div className="flex justify-end">
+          <button type="button" className={btnPrimary} onClick={() => setOpenModal(true)}>
+            <Plus className="mr-1.5 h-4 w-4" /> Tambah Hari Libur
+          </button>
+        </div>
+      )}
+      {canManage && openModal && (
+        <Modal title="Tambah Tanggal Merah / Libur Nasional" onClose={() => setOpenModal(false)}>
+          <form onSubmit={handleAdd} className="space-y-4">
           <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-[16px]">
             <Calendar className="h-5 w-5" />
             <span>Tambah Tanggal Merah / Libur Nasional</span>
@@ -190,6 +202,7 @@ export function HolidaysManager({
             {submitting ? "Menyimpan..." : "Simpan Tanggal Merah"}
           </button>
         </form>
+        </Modal>
       )}
 
       {/* Tabel Master Hari Libur */}

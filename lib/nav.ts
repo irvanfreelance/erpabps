@@ -25,7 +25,7 @@ export const NAV_HR: NavGroup[] = [
     group: "Aktivitas Utama",
     items: [
       { href: "/employees", label: "Karyawan", roles: ALL },
-      { href: "/attendances/clock", label: "Clock In / Pulang", roles: ALL },
+      { href: "/attendances/clock", label: "Clock In / Clock Out", roles: ALL },
       { href: "/attendances", label: "Rekap Kehadiran", roles: ALL },
       { href: "/schedules", label: "Kalender Shift", roles: ALL },
       { href: "/payslips", label: "List Gaji", roles: ALL },

@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { confirmAction } from "@/components/ui/confirm-toast";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Modal } from "@/components/hrd/modal";
 import { DataTable } from "@/components/data-table/data-table";
 import { btnDangerSm, btnPrimary, btnSecondary } from "@/components/ui/button";
 
@@ -15,6 +17,7 @@ export function PositionsManager({ rows, departments }: { rows: Row[]; departmen
   const empty = { code: "", name: "", departmentId: departments[0]?.id ?? "", payrollType: "monthly_split" };
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState<string | null>(null);
+  const [openModal, setOpenModal] = useState(false);
 
   async function save() {
     const url = editing ? `/api/positions/${editing}` : "/api/positions";
@@ -30,6 +33,7 @@ export function PositionsManager({ rows, departments }: { rows: Row[]; departmen
     toast.success("Tersimpan");
     setEditing(null);
     setForm(empty);
+    setOpenModal(false);
     router.refresh();
   }
 
@@ -45,7 +49,29 @@ export function PositionsManager({ rows, departments }: { rows: Row[]; departmen
 
   return (
     <div>
-      <div className="mb-3 grid max-w-xl gap-2 rounded-xl border bg-white p-3">
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          className={btnPrimary}
+          onClick={() => {
+            setEditing(null);
+            setForm(empty);
+            setOpenModal(true);
+          }}
+        >
+          <Plus className="mr-1.5 h-4 w-4" /> Tambah Jabatan
+        </button>
+      </div>
+      {openModal && (
+        <Modal
+          title={editing ? "Ubah Jabatan" : "Tambah Jabatan"}
+          onClose={() => {
+            setOpenModal(false);
+            setEditing(null);
+            setForm(empty);
+          }}
+        >
+          <div className="grid gap-3">
         <input className="min-h-11 rounded-xl border px-3" placeholder="Kode" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
         <input className="min-h-11 rounded-xl border px-3" placeholder="Nama jabatan" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <select className="min-h-11 rounded-xl border px-3" value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
@@ -69,7 +95,9 @@ export function PositionsManager({ rows, departments }: { rows: Row[]; departmen
             </button>
           )}
         </div>
-      </div>
+          </div>
+        </Modal>
+      )}
       <DataTable
         data={rows}
         columns={[
@@ -84,9 +112,10 @@ export function PositionsManager({ rows, departments }: { rows: Row[]; departmen
               <div className="flex gap-2">
                 <button
                   type="button"
-                  className="text-[var(--primary)]"
+                  className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 ring-1 ring-inset ring-sky-600/20 hover:bg-sky-100"
                   onClick={() => {
                     setEditing(r.id);
+                    setOpenModal(true);
                     setForm({
                       code: r.code,
                       name: r.name,
@@ -95,10 +124,10 @@ export function PositionsManager({ rows, departments }: { rows: Row[]; departmen
                     });
                   }}
                 >
-                  Ubah
+                  <Pencil className="h-3 w-3" /> Edit
                 </button>
-                <button type="button" className={btnDangerSm} onClick={() => remove(r.id)}>
-                  Hapus
+                <button type="button" className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20 hover:bg-rose-100" onClick={() => remove(r.id)}>
+                  <Trash2 className="h-3 w-3" /> Hapus
                 </button>
               </div>
             ),

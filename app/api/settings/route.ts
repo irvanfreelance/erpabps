@@ -45,20 +45,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Kunci terkunci" }, { status: 400 });
   }
   const payload = JSON.stringify({ v: parsed.data.value });
-  const rows = await sql`
-    INSERT INTO setting_values (
-      definition_id, scope_type, scope_id, value, effective_from, status, source_ref, reason, created_by
-    ) VALUES (
-      ${(def[0] as { id: string }).id}::bigint, ${parsed.data.scopeType}, ${parsed.data.scopeId ?? null}::bigint,
-      ${payload}::jsonb, ${parsed.data.effectiveFrom}::date, 'active', ${parsed.data.sourceRef}, ${parsed.data.reason},
-      ${actor}::bigint
-    )
-    RETURNING id
-  `;
+  const scopeIdVal = parsed.data.scopeId ? parsed.data.scopeId : null;
+  let rows;
+  try {
+    rows = await sql`
+      INSERT INTO setting_values (
+        definition_id, scope_type, scope_id, value, effective_from, status, source_ref, reason, created_by
+      ) VALUES (
+        ${(def[0] as { id: string }).id}::bigint, ${parsed.data.scopeType}, ${scopeIdVal}::bigint,
+        ${payload}::jsonb, ${parsed.data.effectiveFrom}::date, 'active', ${parsed.data.sourceRef}, ${parsed.data.reason},
+        ${actor}::bigint
+      )
+      RETURNING id
+    `;
+  } catch (err: unknown) {
+    const pgErr = err as { code?: string; message?: string };
+    if (pgErr?.code === "23505") {
+      return NextResponse.json(
+        { error: "Aturan untuk scope dan tanggal efektif tersebut sudah ada" },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json(
+      { error: pgErr?.message ?? "Gagal menyimpan aturan" },
+      { status: 400 },
+    );
+  }
   await sql`
     INSERT INTO setting_audit_logs (definition_key, action, scope_type, scope_id, new_value, source_ref, reason, actor_id)
     VALUES (
-      ${parsed.data.key}, 'create', ${parsed.data.scopeType}, ${parsed.data.scopeId ?? null}::bigint,
+      ${parsed.data.key}, 'create', ${parsed.data.scopeType}, ${scopeIdVal}::bigint,
       ${payload}::jsonb, ${parsed.data.sourceRef}, ${parsed.data.reason}, ${actor}::bigint
     )
   `;

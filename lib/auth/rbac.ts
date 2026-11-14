@@ -30,7 +30,7 @@ const byRole: Record<Role, Record<string, Action[]>> = {
     schedules: ALL_READ,
     "shift-swaps": RC,
     leaves: RC,
-    overtimes: ALL_READ,
+    overtimes: ["read", "create"],
     employees: RU,
     payslips: ALL_READ,
     "cash-advances": RC,

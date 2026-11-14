@@ -90,8 +90,8 @@ export function PayrollRunsWorkspace({
           payFrequency: createType,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal membuat run payroll");
+      const data = (await res.json().catch(() => null)) as { id?: string; error?: string } | null;
+      if (!res.ok || !data?.id) throw new Error(data?.error || "Gagal membuat run payroll");
       toast.success(`Payroll ${createType === "monthly" ? "Bulanan" : "Pekanan"} berhasil di-generate`);
       setOpenCreateModal(false);
       router.push(`/payroll-runs/${data.id}`);

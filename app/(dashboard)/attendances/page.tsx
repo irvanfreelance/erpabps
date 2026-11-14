@@ -3,11 +3,13 @@ import { GET as listLocations } from "@/app/api/locations/route";
 import { GET as listEmployeeTypes } from "@/app/api/employee-types/route";
 import { AttendancesTable, type AttendanceItem } from "@/components/hrd/attendances-table";
 import { fromRoute, internalRequest } from "@/lib/api/from-route";
+import { getServerSession } from "@/lib/auth/session";
 
 export const metadata = { title: "Daftar Kehadiran Karyawan" };
 
 export default async function Page() {
-  const [{ rows }, locs, types] = await Promise.all([
+  const [session, { rows }, locs, types] = await Promise.all([
+    getServerSession(),
     fromRoute<{ rows: AttendanceItem[] }>(await list(internalRequest("/api/attendances"))),
     fromRoute<{ rows: { id: string; name: string }[] }>(await listLocations()).catch(() => ({ rows: [] })),
     fromRoute<{ rows: { code: string; name: string }[] }>(await listEmployeeTypes()).catch(() => ({ rows: [] })),
@@ -28,6 +30,7 @@ export default async function Page() {
         initialRows={rows}
         locations={locs.rows}
         employeeTypes={types.rows}
+        isSuperadmin={session?.user.role === "superadmin"}
       />
     </div>
   );

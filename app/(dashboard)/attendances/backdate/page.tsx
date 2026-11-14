@@ -1,10 +1,16 @@
+import { redirect } from "next/navigation";
 import { GET as listEmp } from "@/app/api/employees/route";
 import { BackdateForm } from "@/components/hrd/backdate-form";
 import { fromRoute } from "@/lib/api/from-route";
+import { getServerSession } from "@/lib/auth/session";
 
 export const metadata = { title: "Backdate presensi" };
 
 export default async function Page() {
+  const session = await getServerSession();
+  if (!session) redirect("/login");
+  if (session.user.role !== "superadmin") redirect("/attendances/clock");
+
   const { rows } = await fromRoute<{ rows: { id: string; full_name: string }[] }>(await listEmp());
   return (
     <div className="space-y-4">

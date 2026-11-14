@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Clock, Plus, CheckCircle, XCircle, UserCheck } from "lucide-react";
+import { DataTable, type Column } from "@/components/data-table/data-table";
 import { Modal } from "@/components/hrd/modal";
 import { btnPrimary, btnSecondary } from "@/components/ui/button";
 
@@ -47,14 +48,31 @@ export function OvertimesManager({
   // Form State
   const [employeeId, setEmployeeId] = useState(employees[0]?.id || "");
   const [overtimeDate, setOvertimeDate] = useState(new Date().toISOString().slice(0, 10));
-  const [durationMinutes, setDurationMinutes] = useState(120);
-  const [hourlyRate, setHourlyRate] = useState(25000);
+  const [startTime, setStartTime] = useState("17:00");
+  const [endTime, setEndTime] = useState("19:00");
   const [notes, setNotes] = useState("");
+
+  function calcDurationMinutes(start: string, end: string) {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    if (!Number.isFinite(sh) || !Number.isFinite(sm) || !Number.isFinite(eh) || !Number.isFinite(em)) {
+      return 0;
+    }
+    let diff = eh * 60 + em - (sh * 60 + sm);
+    if (diff <= 0) diff += 24 * 60;
+    return diff;
+  }
+
+  const durationMinutes = calcDurationMinutes(startTime, endTime);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!employeeId) {
       toast.error("Pilih karyawan yang ditugaskan lembur");
+      return;
+    }
+    if (durationMinutes <= 0) {
+      toast.error("Jam mulai dan jam selesai tidak valid");
       return;
     }
     setLoading(true);
@@ -65,8 +83,9 @@ export function OvertimesManager({
         body: JSON.stringify({
           employeeId,
           overtimeDate,
-          durationMinutes: Number(durationMinutes),
-          hourlyRate: Number(hourlyRate),
+          startTime,
+          endTime,
+          durationMinutes,
           notes,
         }),
       });
@@ -111,125 +130,136 @@ export function OvertimesManager({
         <p className="text-[13px] text-gray-500">
           Daftar pengajuan jam kerja lembur bawahan dan riwayat persetujuan atasan / HR superadmin.
         </p>
-        {isSupervisorOrAdmin && (
-          <button
-            type="button"
-            onClick={() => setOpenModal(true)}
-            className={btnPrimary}
-          >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Tugaskan / Ajukan Lembur
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setOpenModal(true)}
+          className={btnPrimary}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          {isSupervisorOrAdmin ? "Tugaskan / Ajukan Lembur" : "Ajukan Lembur"}
+        </button>
       </div>
 
-      <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-[13px]">
-          <thead className="border-b bg-[var(--primary)] text-[12px] font-semibold text-white">
-            <tr>
-              <th className="px-3 py-2.5">Karyawan</th>
-              <th className="px-3 py-2.5">Tanggal Lembur</th>
-              <th className="px-3 py-2.5 text-right">Durasi (Menit / Jam)</th>
-              <th className="px-3 py-2.5 text-right">Tarif / Jam</th>
-              <th className="px-3 py-2.5 text-right">Total Upah Lembur</th>
-              <th className="px-3 py-2.5">Keterangan / Diajukan Oleh</th>
-              <th className="px-3 py-2.5 text-center">Status</th>
-              {isSupervisorOrAdmin && <th className="px-3 py-2.5 text-center">Aksi</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={isSupervisorOrAdmin ? 8 : 7} className="py-8 text-center text-gray-400">
-                  Belum ada data pengajuan lembur yang tercatat.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => {
-                const hours = Number(row.payable_hours) || Number(row.duration_minutes) / 60;
-                const total = Math.round(hours * Number(row.flat_rate));
-
-                return (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2.5 font-medium text-gray-900">
-                      <div>{row.full_name}</div>
-                      <div className="text-[11px] text-gray-400">
-                        {row.position_name || "-"} · {row.employee_number || "-"}
+      <DataTable
+        data={rows}
+        exportFilename="pengajuan-lembur"
+        columns={[
+          {
+            key: "full_name",
+            label: "Karyawan",
+            hideable: false,
+            render: (row) => (
+              <div>
+                <div className="font-medium text-gray-900">{row.full_name}</div>
+                <div className="text-[11px] text-gray-500">
+                  {row.position_name || "-"} • {row.employee_number || "-"}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: "overtime_date",
+            label: "Tanggal Lembur",
+            render: (row) =>
+              new Date(row.overtime_date).toLocaleDateString("id-ID", {
+                timeZone: "Asia/Jakarta",
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
+          },
+          {
+            key: "duration_minutes",
+            label: "Durasi (Menit / Jam)",
+            numeric: true,
+            render: (row) => `${row.duration_minutes} mnt (${Number(row.payable_hours)} jam)`,
+          },
+          {
+            key: "flat_rate",
+            label: "Tarif / Jam",
+            money: true,
+            render: (row) => formatRupiah(row.flat_rate),
+          },
+          {
+            key: "total_upah",
+            label: "Total Upah Lembur",
+            money: true,
+            render: (row) => (
+              <span className="font-semibold text-emerald-600">
+                {formatRupiah(Number(row.payable_hours) * Number(row.flat_rate))}
+              </span>
+            ),
+          },
+          {
+            key: "notes",
+            label: "Keterangan / Diajukan Oleh",
+            render: (row) => (
+              <div>
+                <div className="text-gray-700">{row.notes || "-"}</div>
+                <div className="text-[11px] text-gray-400">
+                  Diajukan oleh: {row.requester_name || "-"}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: (row) =>
+              row.status === "approved" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
+                  <UserCheck className="h-3 w-3" /> Disetujui
+                </span>
+              ) : row.status === "rejected" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-medium text-rose-700">
+                  Ditolak
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700">
+                  Menunggu Persetujuan
+                </span>
+              ),
+          },
+          ...(isSupervisorOrAdmin
+            ? [
+                {
+                  key: "actions",
+                  label: "Aksi",
+                  includeInExport: false,
+                  render: (row: OvertimeRow) =>
+                    row.status === "pending" ? (
+                      <div className="flex justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleAction(row.id, "approve")}
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 hover:bg-emerald-100 disabled:opacity-50"
+                          title="Setujui Lembur"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => handleAction(row.id, "reject")}
+                          className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 ring-1 ring-inset ring-rose-600/20 hover:bg-rose-100 disabled:opacity-50"
+                          title="Tolak Lembur"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          Reject
+                        </button>
                       </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-gray-700">
-                      {row.overtime_date}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-gray-700 font-medium">
-                      {row.duration_minutes} mnt ({hours} jam)
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-gray-600">
-                      {formatRupiah(row.flat_rate)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-bold text-emerald-700">
-                      {formatRupiah(total)}
-                    </td>
-                    <td className="px-3 py-2.5 text-gray-600 text-[12px]">
-                      <div>{row.notes || "-"}</div>
-                      {row.requester_name && (
-                        <div className="text-[11px] text-gray-400">
-                          Diajukan oleh: {row.requester_name}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {row.status === "approved" ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                          Disetujui
-                        </span>
-                      ) : row.status === "rejected" ? (
-                        <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-                          Ditolak
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                          Menunggu Persetujuan
-                        </span>
-                      )}
-                    </td>
-                    {isSupervisorOrAdmin && (
-                      <td className="px-3 py-2.5 text-center">
-                        {row.status === "pending" ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleAction(row.id, "approve")}
-                              className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-emerald-700"
-                              title="Setujui Lembur"
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                              Setujui
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAction(row.id, "reject")}
-                              className="inline-flex items-center gap-1 rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-rose-700"
-                              title="Tolak Lembur"
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                              Tolak
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-gray-400">
-                            {row.approver_name ? `Oleh: ${row.approver_name}` : "Selesai"}
-                          </span>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
+                    ) : (
+                      <span className="text-[11px] text-gray-400">
+                        Oleh: {row.approver_name || "Admin"}
+                      </span>
+                    ),
+                } satisfies Column<OvertimeRow>,
+              ]
+            : []),
+        ]}
+      />
       {openModal && (
         <Modal
           title="Tugaskan Lembur Bawahan (Bisa Backdate)"
@@ -238,7 +268,7 @@ export function OvertimesManager({
           <form onSubmit={handleCreate} className="space-y-3 text-[13px]">
             <div>
               <label className="block text-[12px] font-medium text-gray-700">
-                Pilih Karyawan Bawahan
+                Pilih Karyawan
               </label>
               <select
                 value={employeeId}
@@ -270,39 +300,32 @@ export function OvertimesManager({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[12px] font-medium text-gray-700">
-                  Durasi Lembur (Menit)
+                  Jam Mulai
                 </label>
                 <input
-                  type="number"
-                  min={15}
-                  step={15}
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
                   required
                   className="mt-1 w-full rounded border border-gray-300 p-2 text-[13px]"
                 />
-                <span className="text-[11px] text-gray-400">
-                  = {(durationMinutes / 60).toFixed(1)} Jam
-                </span>
               </div>
               <div>
                 <label className="block text-[12px] font-medium text-gray-700">
-                  Tarif Lembur / Jam (Rp)
+                  Jam Selesai
                 </label>
                 <input
-                  type="number"
-                  min={0}
-                  step={1000}
-                  value={hourlyRate}
-                  onChange={(e) => setHourlyRate(Number(e.target.value))}
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
                   required
                   className="mt-1 w-full rounded border border-gray-300 p-2 text-[13px]"
                 />
-                <span className="text-[11px] text-gray-400">
-                  Total: {formatRupiah((durationMinutes / 60) * hourlyRate)}
-                </span>
               </div>
             </div>
+            <p className="text-[11px] text-gray-500">
+              Durasi: <strong>{durationMinutes} menit</strong> ({(durationMinutes / 60).toFixed(1)} jam) — Tarif mengikuti pengaturan sistem.
+            </p>
 
             <div>
               <label className="block text-[12px] font-medium text-gray-700">

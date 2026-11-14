@@ -8,7 +8,7 @@ import { jsonSafe } from "@/lib/utils/serialize";
 const schema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
-  departmentId: z.string(),
+  departmentId: z.string().optional().nullable(),
   payrollType: z.string().default("monthly_split"),
 });
 
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const sql = getDb();
   const rows = await sql`
     INSERT INTO positions (department_id, name, code, payroll_type)
-    VALUES (${parsed.data.departmentId}::bigint, ${parsed.data.name}, ${parsed.data.code}, ${parsed.data.payrollType})
+    VALUES (${parsed.data.departmentId || null}::bigint, ${parsed.data.name}, ${parsed.data.code}, ${parsed.data.payrollType})
     ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
     RETURNING id, code, name
   `;

@@ -34,10 +34,12 @@ export function AttendancesTable({
   initialRows,
   locations = [],
   employeeTypes = [],
+  isSuperadmin = false,
 }: {
   initialRows: AttendanceItem[];
   locations?: { id: string; name: string }[];
   employeeTypes?: { code: string; name: string }[];
+  isSuperadmin?: boolean;
 }) {
   // Advanced Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -246,14 +248,16 @@ export function AttendancesTable({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setOpenFingerprintModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-600 bg-white px-3 py-2 text-[13px] font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 transition-all"
-          >
-            <Upload className="h-4 w-4" />
-            <span>Import Fingerprint</span>
-          </button>
+          {isSuperadmin && (
+            <button
+              type="button"
+              onClick={() => setOpenFingerprintModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-600 bg-white px-3 py-2 text-[13px] font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 transition-all"
+            >
+              <Upload className="h-4 w-4" />
+              <span>Import Fingerprint</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}

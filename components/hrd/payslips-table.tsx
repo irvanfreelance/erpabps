@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Download, FileText, Loader2, Eye } from "lucide-react";
 import { exportPayslipPdf, PayslipItem, PayslipDetail } from "@/lib/utils/export-payslip-pdf";
 import { toast } from "sonner";
+import { DataTable, type Column } from "@/components/data-table/data-table";
 import { Modal } from "@/components/hrd/modal";
 import { btnPrimary, btnSecondary } from "@/components/ui/button";
 
@@ -43,98 +44,117 @@ export function PayslipsTable({ rows }: { rows: PayslipItem[] }) {
   const formatRupiah = (val: string | number) =>
     `Rp ${Number(val).toLocaleString("id-ID")}`;
 
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso).slice(0, 10);
+    return d.toLocaleDateString("id-ID", {
+      timeZone: "Asia/Jakarta",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const columns: Column<PayslipItem>[] = [
+    {
+      key: "full_name",
+      label: "Karyawan",
+      hideable: false,
+      render: (row) => (
+        <div>
+          <div className="font-medium text-gray-900">{row.full_name}</div>
+          <div className="text-[11px] text-gray-500">{row.employee_number || "-"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "position_name",
+      label: "Jabatan / Kelompok",
+      render: (row) => (
+        <div>
+          <div>{row.position_name || "-"}</div>
+          <div className="text-[11px] text-gray-400">{row.pay_group_name || "-"}</div>
+        </div>
+      ),
+    },
+    {
+      key: "period_start",
+      label: "Periode Gaji",
+      render: (row) => `${fmtDate(row.period_start)} s/d ${fmtDate(row.period_end)}`,
+    },
+    {
+      key: "payable_minutes",
+      label: "Menit Hadir",
+      numeric: true,
+      render: (row) => `${row.payable_minutes} mnt (${Math.round(row.payable_minutes / 60)} jam)`,
+    },
+    {
+      key: "late_minutes",
+      label: "Telat",
+      numeric: true,
+      render: (row) =>
+        row.late_minutes > 0 ? (
+          <span className="font-semibold text-rose-600">{row.late_minutes} mnt</span>
+        ) : (
+          <span className="text-gray-400">0 mnt</span>
+        ),
+    },
+    {
+      key: "earnings_total",
+      label: "Penghasilan",
+      money: true,
+      render: (row) => <span className="text-emerald-600">{formatRupiah(row.earnings_total)}</span>,
+    },
+    {
+      key: "deduction_total",
+      label: "Potongan",
+      money: true,
+      render: (row) => <span className="text-rose-600">{formatRupiah(row.deduction_total)}</span>,
+    },
+    {
+      key: "net_pay",
+      label: "Gaji Bersih",
+      money: true,
+      render: (row) => <span className="font-bold text-[var(--primary)]">{formatRupiah(row.net_pay)}</span>,
+    },
+    {
+      key: "actions",
+      label: "Aksi",
+      includeInExport: false,
+      render: (row) => (
+        <div className="flex justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            disabled={loadingId === row.id}
+            onClick={() => handleViewDetail(row)}
+            className="inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            title="Lihat Rincian"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Detail
+          </button>
+          <button
+            type="button"
+            disabled={loadingId === row.id}
+            onClick={() => handleDownloadPdf(row)}
+            className="inline-flex items-center gap-1 rounded bg-[var(--primary)] px-2 py-1 text-[11px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+            title="Unduh Slip PDF"
+          >
+            {loadingId === row.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            PDF
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-[13px]">
-          <thead className="border-b bg-[var(--primary)] text-[12px] font-semibold text-white">
-            <tr>
-              <th className="px-3 py-2.5">Karyawan</th>
-              <th className="px-3 py-2.5">Jabatan / Kelompok</th>
-              <th className="px-3 py-2.5">Periode Gaji</th>
-              <th className="px-3 py-2.5 text-right">Menit Hadir</th>
-              <th className="px-3 py-2.5 text-right">Telat</th>
-              <th className="px-3 py-2.5 text-right">Penghasilan</th>
-              <th className="px-3 py-2.5 text-right">Potongan</th>
-              <th className="px-3 py-2.5 text-right font-bold text-white">Gaji Bersih</th>
-              <th className="px-3 py-2.5 text-center">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="py-8 text-center text-gray-400">
-                  Belum ada data slip gaji yang tersedia untuk Anda.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
-                    <div>{row.full_name}</div>
-                    <div className="text-[11px] text-gray-500">{row.employee_number || "-"}</div>
-                  </td>
-                  <td className="px-3 py-2.5 text-gray-600">
-                    <div>{row.position_name || "-"}</div>
-                    <div className="text-[11px] text-gray-400">{row.pay_group_name || "-"}</div>
-                  </td>
-                  <td className="px-3 py-2.5 text-gray-600">
-                    {row.period_start} s/d {row.period_end}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-gray-600">
-                    {row.payable_minutes} mnt ({Math.round(row.payable_minutes / 60)} jam)
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    {row.late_minutes > 0 ? (
-                      <span className="font-semibold text-rose-600">{row.late_minutes} mnt</span>
-                    ) : (
-                      <span className="text-gray-400">0 mnt</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-emerald-600">
-                    {formatRupiah(row.earnings_total)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-rose-600">
-                    {formatRupiah(row.deduction_total)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-bold text-[var(--primary)]">
-                    {formatRupiah(row.net_pay)}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleViewDetail(row)}
-                        disabled={loadingId === row.id}
-                        className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
-                        title="Lihat Detail Slip"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Detail
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadPdf(row)}
-                        disabled={loadingId === row.id}
-                        className="inline-flex items-center gap-1 rounded bg-[var(--primary)] px-2 py-1 text-[11px] font-medium text-white shadow-sm hover:opacity-90"
-                        title="Unduh Slip Gaji PDF"
-                      >
-                        {loadingId === row.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Download className="h-3.5 w-3.5" />
-                        )}
-                        PDF
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
+      <DataTable data={rows} columns={columns} exportFilename="slip-gaji" />
       {selectedSlip && (
         <Modal
           title={`Rincian Slip Gaji — ${selectedSlip.item.full_name}`}

@@ -1,16 +1,25 @@
 import { GET as list } from "@/app/api/shift-swap-requests/route";
-import { GET as listEmployees } from "@/app/api/employees/route";
 import { ShiftSwapsManager, type ShiftSwapRow } from "@/components/hrd/shift-swaps-manager";
-import { fromRoute, internalRequest } from "@/lib/api/from-route";
+import { fromRoute } from "@/lib/api/from-route";
 import { getServerSession } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
 
 export const metadata = { title: "Tukar Shift" };
 
 export default async function Page() {
   const session = await getServerSession();
-  const [{ rows }, emp] = await Promise.all([
+  const sql = getDb();
+  const myEmpId = session?.user.employeeId ?? null;
+
+  const [{ rows }, candidates] = await Promise.all([
     fromRoute<{ rows: ShiftSwapRow[]; userRole: string }>(await list()),
-    fromRoute<{ rows: { id: string; full_name: string }[] }>(await listEmployees()),
+    sql`
+      SELECT id::text AS id, full_name
+      FROM employees
+      WHERE deleted_at IS NULL
+        AND (${myEmpId}::bigint IS NULL OR id <> ${myEmpId}::bigint)
+      ORDER BY full_name
+    `,
   ]);
 
   const canApprove = session?.user.role === "superadmin" || session?.user.role === "superordinat";
@@ -26,7 +35,7 @@ export default async function Page() {
 
       <ShiftSwapsManager
         rows={rows}
-        employees={emp.rows.map((r) => ({ id: r.id, name: r.full_name }))}
+        employees={(candidates as { id: string; full_name: string }[]).map((r) => ({ id: r.id, name: r.full_name }))}
         userRole={session?.user.role || "subordinat"}
         canApprove={canApprove}
       />
