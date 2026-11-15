@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Source_Sans_3 } from "next/font/google";
 import { Toaster } from "sonner";
 import { ConfirmHost } from "@/components/ui/confirm-toast";
+import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt";
 import { GET as getOrgProfile } from "@/app/api/org-profile/route";
 import { fromRoute } from "@/lib/api/from-route";
 import { fallbackOrg, type OrgProfile } from "@/types/org";
@@ -14,6 +15,21 @@ const sourceSans = Source_Sans_3({
   variable: "--font-source-sans",
   weight: ["400", "600", "700"],
 });
+
+export async function generateViewport(): Promise<Viewport> {
+  let org: OrgProfile;
+  try {
+    org = await fromRoute<OrgProfile>(await getOrgProfile());
+  } catch {
+    org = fallbackOrg();
+  }
+  return {
+    themeColor: org.primary_color || "#01665a",
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  };
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   let org: OrgProfile;
@@ -31,6 +47,12 @@ export async function generateMetadata(): Promise<Metadata> {
       default: org.nama,
     },
     description: org.tagline || org.nama,
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: brandName,
+    },
     icons: {
       icon: [
         { url: icon, type: "image/png", sizes: "32x32" },
@@ -42,13 +64,21 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  let brandName = "ERP HRD";
+  try {
+    const org = await fromRoute<OrgProfile>(await getOrgProfile());
+    brandName = org.nama_singkat || org.nama;
+  } catch {
+    brandName = fallbackOrg().nama_singkat;
+  }
   return (
     <html lang="id" className={`${sourceSans.variable} h-full antialiased`}>
       <body className="min-h-full">
         {children}
         <Toaster richColors position="top-right" />
         <ConfirmHost />
+        <PwaInstallPrompt appName={brandName} />
       </body>
     </html>
   );
