@@ -15,6 +15,7 @@ export function PwaInstallPrompt({ appName }: { appName: string }) {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
+  const [isMobileBrowser, setIsMobileBrowser] = useState(false);
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
@@ -50,12 +51,15 @@ export function PwaInstallPrompt({ appName }: { appName: string }) {
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
 
-    // Detect iOS Safari (no beforeinstallprompt support)
+    // Detect iOS Safari (no beforeinstallprompt support) & general mobile browser
     const ua = window.navigator.userAgent.toLowerCase();
     const isIos = /iphone|ipad|ipod/.test(ua);
     const isSafari = /safari/.test(ua) && !/crios|fxios|edgios/.test(ua);
+    const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
     if (isIos && isSafari) {
       setShowIosHint(true);
+    } else if (isMobile) {
+      setIsMobileBrowser(true);
     }
 
     return () => {
@@ -83,7 +87,7 @@ export function PwaInstallPrompt({ appName }: { appName: string }) {
     }
   };
 
-  if (dismissed || (!deferredPrompt && !showIosHint)) {
+  if (dismissed || (!deferredPrompt && !showIosHint && !isMobileBrowser)) {
     return null;
   }
 
@@ -110,10 +114,19 @@ export function PwaInstallPrompt({ appName }: { appName: string }) {
               </span>{" "}
               untuk akses cepat tanpa buka browser.
             </p>
-          ) : (
+          ) : deferredPrompt ? (
             <p className="mt-0.5 text-xs text-muted-foreground">
               Tambahkan shortcut ke layar utama agar lebih cepat dibuka tanpa
               membuka browser.
+            </p>
+          ) : (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Ketuk menu browser (<span className="font-medium text-foreground">⋮</span>)
+              lalu pilih{" "}
+              <span className="font-medium text-foreground">
+                Tambahkan ke layar utama
+              </span>{" "}
+              untuk akses cepat.
             </p>
           )}
           {!showIosHint && deferredPrompt && (
