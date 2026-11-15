@@ -57,3 +57,64 @@ export async function POST(req: Request) {
   await logAudit({ userId: g.session!.user.id, action: "create", entityType: "payroll_run", entityId: id });
   return NextResponse.json({ id, status: "calculated" });
 }
+
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.string()).min(1).optional(),
+  all: z.boolean().optional(),
+  payFrequency: z.enum(["weekly", "monthly"]).optional(),
+});
+
+export async function DELETE(req: Request) {
+  const g = await guard("payroll-runs", "update");
+  if (g.error) return g.error;
+  const parsed = bulkDeleteSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return zodError(parsed.error);
+  const { ids, all, payFrequency } = parsed.data;
+  if (!all && (!ids || ids.length === 0)) {
+    return NextResponse.json({ error: "Pilih minimal 1 payroll run untuk dihapus" }, { status: 400 });
+  }
+
+  const sql = getDb();
+  let targetIds: string[] = ids ?? [];
+  if (all) {
+    const rows = payFrequency
+      ? await sql`SELECT id FROM payroll_runs WHERE pay_frequency = ${payFrequency}`
+      : await sql`SELECT id FROM payroll_runs`;
+    targetIds = rows.map((r) => String((r as { id: string }).id));
+  }
+
+  if (targetIds.length === 0) {
+    return NextResponse.json({ deleted: 0 });
+  }
+
+  await sql`
+    DELETE FROM cash_advance_repayments
+    WHERE payroll_item_id IN (
+      SELECT id FROM payroll_items WHERE payroll_run_id = ANY(${targetIds}::bigint[])
+    )
+  `;
+  await sql`
+    DELETE FROM payroll_item_details
+    WHERE payroll_item_id IN (
+      SELECT id FROM payroll_items WHERE payroll_run_id = ANY(${targetIds}::bigint[])
+    )
+  `;
+  await sql`DELETE FROM payroll_items WHERE payroll_run_id = ANY(${targetIds}::bigint[])`;
+  await sql`DELETE FROM payroll_run_snapshots WHERE payroll_run_id = ANY(${targetIds}::bigint[])`;
+  await sql`UPDATE payroll_runs SET adjusts_run_id = NULL WHERE adjusts_run_id = ANY(${targetIds}::bigint[])`;
+  const deleted = await sql`
+    DELETE FROM payroll_runs
+    WHERE id = ANY(${targetIds}::bigint[])
+    RETURNING id
+  `;
+
+  await logAudit({
+    userId: g.session!.user.id,
+    action: "delete",
+    entityType: "payroll_run",
+    entityId: targetIds.length === 1 ? targetIds[0] : null,
+    valueAfter: { ids: targetIds, count: deleted.length, all: Boolean(all), payFrequency },
+  });
+
+  return NextResponse.json({ deleted: deleted.length });
+}

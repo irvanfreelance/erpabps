@@ -4,9 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Calendar, Plus, Wallet, Clock, ArrowRight } from "lucide-react";
+import { Calendar, Plus, Wallet, Clock, ArrowRight, Trash2 } from "lucide-react";
+import { DataTable, type Column } from "@/components/data-table/data-table";
 import { Modal } from "@/components/hrd/modal";
 import { btnPrimary, btnSecondary } from "@/components/ui/button";
+
+function fmtDateId(val: string | null | undefined) {
+  if (!val) return "—";
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return String(val).slice(0, 10);
+  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 export type RunRow = {
   id: string;
@@ -38,6 +46,9 @@ export function PayrollRunsWorkspace({
   const [openCreateModal, setOpenCreateModal] = useState(false);
   const [createType, setCreateType] = useState<"monthly" | "weekly">("monthly");
   const [loading, setLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<{ mode: "selected" | "all"; count: number } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Form states
   const filteredGroups = payGroups.filter((g) => g.pay_frequency === createType);
@@ -109,6 +120,117 @@ export function PayrollRunsWorkspace({
 
   const monthlyRuns = runs.filter((r) => r.pay_frequency === "monthly");
   const weeklyRuns = runs.filter((r) => r.pay_frequency === "weekly");
+
+  async function handleBulkDelete() {
+    if (!confirmDelete) return;
+    try {
+      setDeleting(true);
+      const body =
+        confirmDelete.mode === "all"
+          ? { all: true, ...(activeTab !== "all" ? { payFrequency: activeTab } : {}) }
+          : { ids: selectedIds };
+      const res = await fetch("/api/payroll-runs", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json().catch(() => null)) as { deleted?: number; error?: string } | null;
+      if (!res.ok) throw new Error(data?.error || "Gagal menghapus payroll run");
+      toast.success(`${data?.deleted ?? confirmDelete.count} payroll run berhasil dihapus`);
+      setSelectedIds([]);
+      setConfirmDelete(null);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Terjadi kesalahan saat menghapus");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const columns: Column<RunRow>[] = [
+    {
+      key: "pay_group_name",
+      label: "Kelompok Penggajian",
+      render: (r) => (
+        <div>
+          <Link
+            href={`/payroll-runs/${r.id}`}
+            className="font-semibold text-[var(--primary)] hover:underline"
+          >
+            {r.pay_group_name}
+          </Link>
+          <div className="text-[11px] text-gray-400">{r.pay_group_code}</div>
+        </div>
+      ),
+      exportValue: (r) => `${r.pay_group_name} (${r.pay_group_code})`,
+    },
+    {
+      key: "pay_frequency",
+      label: "Tipe Siklus",
+      render: (r) =>
+        r.pay_frequency === "monthly" ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+            Bulanan (Monthly)
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+            Pekanan (Weekly)
+          </span>
+        ),
+      exportValue: (r) => (r.pay_frequency === "monthly" ? "Bulanan (Monthly)" : "Pekanan (Weekly)"),
+    },
+    {
+      key: "period_start",
+      label: "Periode Mulai",
+      render: (r) => <span className="whitespace-nowrap text-gray-700">{fmtDateId(r.period_start)}</span>,
+      exportValue: (r) => fmtDateId(r.period_start),
+    },
+    {
+      key: "period_end",
+      label: "Periode Akhir",
+      render: (r) => <span className="whitespace-nowrap text-gray-700">{fmtDateId(r.period_end)}</span>,
+      exportValue: (r) => fmtDateId(r.period_end),
+    },
+    {
+      key: "status",
+      label: "Status",
+      render: (r) =>
+        r.status === "approved" || r.status === "paid" ? (
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
+            Approved / Beku
+          </span>
+        ) : r.status === "calculated" ? (
+          <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-medium text-sky-800">
+            Terkalkulasi
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-medium text-amber-800">
+            Draft
+          </span>
+        ),
+      exportValue: (r) =>
+        r.status === "approved" || r.status === "paid"
+          ? "Approved / Beku"
+          : r.status === "calculated"
+            ? "Terkalkulasi"
+            : "Draft",
+    },
+    {
+      key: "actions",
+      label: "Aksi",
+      includeInExport: false,
+      sticky: "right",
+      render: (r) => (
+        <Link
+          href={`/payroll-runs/${r.id}`}
+          className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
+        >
+          Periksa & Hitung
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -208,81 +330,78 @@ export function PayrollRunsWorkspace({
         </button>
       </div>
 
-      {/* Table Runs */}
-      <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-[13px]">
-          <thead className="border-b bg-[var(--primary)] text-[12px] font-semibold text-white">
-            <tr>
-              <th className="px-3 py-2.5">Kelompok Penggajian</th>
-              <th className="px-3 py-2.5">Tipe Siklus</th>
-              <th className="px-3 py-2.5">Periode Mulai</th>
-              <th className="px-3 py-2.5">Periode Akhir</th>
-              <th className="px-3 py-2.5 text-center">Status</th>
-              <th className="px-3 py-2.5 text-center">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {displayedRuns.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-8 text-center text-gray-400">
-                  Belum ada daftar payroll run pada kategori ini.
-                </td>
-              </tr>
-            ) : (
-              displayedRuns.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2.5 font-medium text-gray-900">
-                    <Link
-                      href={`/payroll-runs/${r.id}`}
-                      className="font-semibold text-[var(--primary)] hover:underline"
-                    >
-                      {r.pay_group_name}
-                    </Link>
-                    <div className="text-[11px] text-gray-400">{r.pay_group_code}</div>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {r.pay_frequency === "monthly" ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-                        Bulanan (Monthly)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
-                        Pekanan (Weekly)
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-gray-700">{r.period_start}</td>
-                  <td className="px-3 py-2.5 text-gray-700">{r.period_end}</td>
-                  <td className="px-3 py-2.5 text-center">
-                    {r.status === "approved" || r.status === "paid" ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
-                        Approved / Beku
-                      </span>
-                    ) : r.status === "calculated" ? (
-                      <span className="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-medium text-sky-800">
-                        Terkalkulasi
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-medium text-amber-800">
-                        Draft
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <Link
-                      href={`/payroll-runs/${r.id}`}
-                      className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
-                    >
-                      Periksa & Hitung
-                      <ArrowRight className="h-3 w-3" />
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Bulk Delete Toolbar */}
+      {displayedRuns.length > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {selectedIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete({ mode: "selected", count: selectedIds.length })}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[12px] font-medium text-red-700 hover:bg-red-100"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Hapus Terpilih ({selectedIds.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setConfirmDelete({ mode: "all", count: displayedRuns.length })}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-[12px] font-medium text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Hapus Semua ({displayedRuns.length})
+          </button>
+        </div>
+      )}
+
+      {/* Standard DataTable */}
+      <DataTable
+        columns={columns}
+        data={displayedRuns}
+        selectable
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        exportFilename={`Payroll_Runs_${activeTab}_${new Date().toISOString().slice(0, 10)}`}
+      />
+
+      {/* Modal Konfirmasi Hapus Bulk */}
+      {confirmDelete && (
+        <Modal
+          title="Konfirmasi Hapus Payroll Run"
+          onClose={() => !deleting && setConfirmDelete(null)}
+        >
+          <div className="space-y-4">
+            <p className="text-[13px] text-gray-700">
+              Anda yakin ingin menghapus{" "}
+              <span className="font-semibold text-red-600">{confirmDelete.count}</span> payroll run
+              {confirmDelete.mode === "all" && activeTab !== "all"
+                ? ` (${activeTab === "monthly" ? "Bulanan" : "Pekanan"})`
+                : ""}
+              ? Semua item rincian gaji dan snapshot pada run tersebut juga akan ikut terhapus dan
+              tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setConfirmDelete(null)}
+                className={btnSecondary}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleBulkDelete}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deleting ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal Generate Run Baru Terpisah */}
       {openCreateModal && (

@@ -89,17 +89,29 @@ export function DataTable<T extends { id?: string | number }>({
   data,
   onRow,
   selectable,
+  selectedIds,
+  onSelectionChange,
   exportFilename = "data",
 }: {
   columns: Column<T>[];
   data: T[];
   onRow?: (row: T) => void;
   selectable?: boolean;
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
   exportFilename?: string;
 }) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [dir, setDir] = useState<"asc" | "desc">("asc");
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [internalChecked, setInternalChecked] = useState<Set<string>>(new Set());
+  const checked = useMemo(
+    () => (selectedIds ? new Set(selectedIds) : internalChecked),
+    [selectedIds, internalChecked],
+  );
+  function updateChecked(next: Set<string>) {
+    if (!selectedIds) setInternalChecked(next);
+    onSelectionChange?.(Array.from(next));
+  }
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [term, setTerm] = useState("");
@@ -365,7 +377,22 @@ export function DataTable<T extends { id?: string | number }>({
                   <th
                     className={`w-10 bg-[var(--primary)] px-3 py-2.5 ${freezeNo ? stickyClass("left", true, false) : "bg-[var(--primary)]"}`}
                     style={freezeNo ? { left: offsets.left.get("__check") ?? 0, minWidth: CHECK_W, width: CHECK_W } : undefined}
-                  />
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label="Pilih semua di halaman ini"
+                      checked={rows.length > 0 && rows.every((r, idx) => checked.has(String(r.id ?? start + idx)))}
+                      onChange={(e) => {
+                        const next = new Set(checked);
+                        for (let idx = 0; idx < rows.length; idx++) {
+                          const rid = String(rows[idx].id ?? start + idx);
+                          if (e.target.checked) next.add(rid);
+                          else next.delete(rid);
+                        }
+                        updateChecked(next);
+                      }}
+                    />
+                  </th>
                 )}
                 <th
                   className={`w-12 bg-[var(--primary)] px-3 py-2.5 whitespace-nowrap ${freezeNo ? stickyClass("left", true, !lastLeftKey) : ""}`}
@@ -423,7 +450,7 @@ export function DataTable<T extends { id?: string | number }>({
                             const next = new Set(checked);
                             if (e.target.checked) next.add(id);
                             else next.delete(id);
-                            setChecked(next);
+                            updateChecked(next);
                           }}
                         />
                       </td>

@@ -256,13 +256,13 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
       overtimeTotal += otAmount;
       overtimeHours += hours;
     }
+    details.push({
+      code: "LEMBUR",
+      amount: overtimeTotal,
+      qty: Number(overtimeHours.toFixed(2)),
+      rate: overtimeTotal > 0 ? Math.round(overtimeTotal / (overtimeHours || 1)) : 0,
+    });
     if (overtimeTotal > 0) {
-      details.push({
-        code: "LEMBUR",
-        amount: overtimeTotal,
-        qty: Number(overtimeHours.toFixed(2)),
-        rate: Math.round(overtimeTotal / (overtimeHours || 1)),
-      });
       earnings += overtimeTotal;
     }
 
@@ -311,26 +311,53 @@ export async function calculateRun(sql: SqlClient, runId: string, actorId: strin
     }
 
     const net = earnings - deductions;
+    // Gabungkan details (calculated) dan empOverrides (manual_override) tanpa duplikasi component_code
+    const mergedMap = new Map<
+      string,
+      { code: string; qty: number; rate: number; amount: number; sourceRef: string }
+    >();
+    for (const d of details) {
+      mergedMap.set(d.code, {
+        code: d.code,
+        qty: d.qty,
+        rate: d.rate,
+        amount: d.amount,
+        sourceRef: "calculated",
+      });
+    }
+    for (const ov of empOverrides) {
+      mergedMap.set(ov.component_code, {
+        code: ov.component_code,
+        qty: Number(ov.quantity),
+        rate: Number(ov.unit_rate),
+        amount: Number(ov.amount),
+        sourceRef: "manual_override",
+      });
+    }
+
+    const finalDetails = Array.from(mergedMap.values());
+    earnings = 0;
+    deductions = 0;
+    for (const fd of finalDetails) {
+      if (fd.amount >= 0) earnings += fd.amount;
+      else deductions += Math.abs(fd.amount);
+    }
+    const finalNet = earnings - deductions;
+
     const items = await sql`
       INSERT INTO payroll_items (
         payroll_run_id, employee_id, payable_minutes, late_minutes,
         earnings_total, deduction_total, net_pay
       ) VALUES (
         ${runId}::bigint, ${emp.id}::bigint, ${payableMinutes}, ${lateMinutes},
-        ${earnings}, ${deductions}, ${net}
+        ${earnings}, ${deductions}, ${finalNet}
       ) RETURNING id
     `;
     const itemId = String((items[0] as { id: string }).id);
-    for (const d of details) {
+    for (const fd of finalDetails) {
       await sql`
         INSERT INTO payroll_item_details (payroll_item_id, component_code, quantity, unit_rate, amount, source_ref)
-        VALUES (${itemId}::bigint, ${d.code}, ${d.qty}, ${d.rate}, ${d.amount}, 'calculated')
-      `;
-    }
-    for (const ov of empOverrides) {
-      await sql`
-        INSERT INTO payroll_item_details (payroll_item_id, component_code, quantity, unit_rate, amount, source_ref)
-        VALUES (${itemId}::bigint, ${ov.component_code}, ${ov.quantity}, ${ov.unit_rate}, ${ov.amount}, 'manual_override')
+        VALUES (${itemId}::bigint, ${fd.code}, ${fd.qty}, ${fd.rate}, ${fd.amount}, ${fd.sourceRef})
       `;
     }
 

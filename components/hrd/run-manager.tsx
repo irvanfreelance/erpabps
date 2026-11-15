@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Edit2, Eye, Plus, Trash2, CheckCircle, Calculator } from "lucide-react";
+import { Edit2, Eye, Plus, Trash2, CheckCircle, Calculator, Pencil, Check, X } from "lucide-react";
+import { DataTable, type Column } from "@/components/data-table/data-table";
 import { componentQtyLabel } from "@/lib/hrd/component-qty";
 import { Modal } from "@/components/hrd/modal";
 import { btnPrimary, btnSecondary } from "@/components/ui/button";
@@ -49,8 +50,23 @@ export function RunManager({
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Form override komponen baru
-  const [compCode, setCompCode] = useState("BONUS_MANUAL");
-  const [compAmount, setCompAmount] = useState("");
+  const [addCode, setAddCode] = useState("BONUS_MANUAL");
+  const [addAmount, setAddAmount] = useState("");
+  const [dedCode, setDedCode] = useState("KASBON");
+  const [dedAmount, setDedAmount] = useState("");
+  const [editingDetailId, setEditingDetailId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+
+  function formatThousands(val: string) {
+    const digits = val.replace(/\D/g, "");
+    if (!digits) return "";
+    return Number(digits).toLocaleString("id-ID");
+  }
+
+  function parseDigits(val: string) {
+    const digits = val.replace(/\D/g, "");
+    return digits ? Number(digits) : 0;
+  }
   const [compQty, setCompQty] = useState("1");
 
   async function act(action: string) {
@@ -89,13 +105,14 @@ export function RunManager({
     }
   }
 
-  async function handleUpsertDetail() {
-    if (!selectedItem) return;
-    const amountNum = Number(compAmount);
-    if (!compCode || isNaN(amountNum)) {
-      toast.error("Kode dan nominal komponen wajib diisi dengan benar");
+  async function handleUpsertManual(code: string, rawAmount: string, isDeduction: boolean) {
+    if (!selectedItem || !rawAmount) return;
+    const parsed = parseDigits(rawAmount);
+    if (!code || parsed === 0) {
+      toast.error("Nominal harus lebih dari 0");
       return;
     }
+    const amountNum = isDeduction ? -parsed : parsed;
 
     try {
       setLoading(true);
@@ -104,9 +121,9 @@ export function RunManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "upsert_detail",
-          componentCode: compCode,
+          componentCode: code,
           amount: amountNum,
-          quantity: Number(compQty) || 1,
+          quantity: 1,
           unitRate: amountNum,
         }),
       });
@@ -114,13 +131,42 @@ export function RunManager({
         const err = await res.json();
         throw new Error(err.error || "Gagal menyimpan override komponen");
       }
-      toast.success(`Komponen ${compCode} berhasil di-override`);
-      setCompAmount("");
-      // Refresh detail modal
+      toast.success(`Komponen ${code} berhasil diterapkan`);
+      if (isDeduction) setDedAmount("");
+      else setAddAmount("");
       await openDetailModal(selectedItem);
       router.refresh();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Terjadi kesalahan saat override");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSaveEdit(d: ItemDetail, isDeduction: boolean) {
+    if (!selectedItem || editAmount === "") return;
+    const mag = parseDigits(editAmount);
+    const parsed = isDeduction ? -mag : mag;
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/payroll-items/${selectedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "upsert_detail",
+          componentCode: d.component_code,
+          amount: parsed,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan perubahan");
+      toast.success(`Komponen ${d.component_code} diperbarui`);
+      setEditingDetailId(null);
+      setEditAmount("");
+      await openDetailModal(selectedItem);
+      router.refresh();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Error");
     } finally {
       setLoading(false);
     }
@@ -153,6 +199,89 @@ export function RunManager({
 
   const formatRupiah = (val: string | number) =>
     `Rp ${Number(val).toLocaleString("id-ID")}`;
+
+  const itemColumns: Column<RunItem>[] = [
+    {
+      key: "full_name",
+      label: "Karyawan",
+      render: (item) => <span className="font-medium text-gray-900">{item.full_name}</span>,
+    },
+    {
+      key: "payable_minutes",
+      label: "Menit Hadir",
+      numeric: true,
+      render: (item) => (
+        <span className="text-gray-600">
+          {item.payable_minutes} mnt ({Math.round(item.payable_minutes / 60)} jam)
+        </span>
+      ),
+      exportValue: (item) => item.payable_minutes,
+    },
+    {
+      key: "late_minutes",
+      label: "Menit Telat",
+      numeric: true,
+      render: (item) =>
+        item.late_minutes > 0 ? (
+          <span className="font-semibold text-rose-600">{item.late_minutes} mnt</span>
+        ) : (
+          <span className="text-gray-400">0 mnt</span>
+        ),
+      exportValue: (item) => item.late_minutes,
+    },
+    {
+      key: "earnings_total",
+      label: "Penghasilan",
+      money: true,
+      render: (item) => (
+        <span className="font-medium text-emerald-600">{formatRupiah(item.earnings_total)}</span>
+      ),
+      exportValue: (item) => Number(item.earnings_total),
+    },
+    {
+      key: "deduction_total",
+      label: "Potongan",
+      money: true,
+      render: (item) => (
+        <span className="font-medium text-rose-600">{formatRupiah(item.deduction_total)}</span>
+      ),
+      exportValue: (item) => Number(item.deduction_total),
+    },
+    {
+      key: "net_pay",
+      label: "Gaji Netto",
+      money: true,
+      render: (item) => (
+        <span className="font-bold text-[var(--primary)]">{formatRupiah(item.net_pay)}</span>
+      ),
+      exportValue: (item) => Number(item.net_pay),
+    },
+    {
+      key: "actions",
+      label: "Pemeriksaan / Override",
+      includeInExport: false,
+      sticky: "right",
+      render: (item) => (
+        <button
+          type="button"
+          onClick={() => openDetailModal(item)}
+          className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
+        >
+          {isSuperadmin && !frozen ? (
+            <>
+              <Edit2 className="h-3.5 w-3.5 text-amber-600" />
+              Periksa & Override
+            </>
+          ) : (
+            <>
+              <Eye className="h-3.5 w-3.5" />
+              Lihat Komponen
+            </>
+          )}
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -195,80 +324,18 @@ export function RunManager({
       )}
 
       {/* Item List Table */}
-      <div className="overflow-x-auto rounded border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-[13px]">
-          <thead className="border-b bg-[var(--primary)] text-[12px] font-semibold text-white">
-            <tr>
-              <th className="px-3 py-2.5">Karyawan</th>
-              <th className="px-3 py-2.5 text-right">Menit Hadir</th>
-              <th className="px-3 py-2.5 text-right">Menit Telat</th>
-              <th className="px-3 py-2.5 text-right">Penghasilan</th>
-              <th className="px-3 py-2.5 text-right">Potongan</th>
-              <th className="px-3 py-2.5 text-right font-bold text-white">Gaji Netto</th>
-              <th className="px-3 py-2.5 text-center">Pemeriksaan / Override</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-400">
-                  Belum ada karyawan yang dikalkulasi pada run ini. Klik tombol <strong>Hitung Ulang</strong> untuk memulai kalkulasi.
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2.5 font-medium text-gray-900">{item.full_name}</td>
-                  <td className="px-3 py-2.5 text-right text-gray-600">
-                    {item.payable_minutes} mnt ({Math.round(item.payable_minutes / 60)} jam)
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    {item.late_minutes > 0 ? (
-                      <span className="font-semibold text-rose-600">{item.late_minutes} mnt</span>
-                    ) : (
-                      <span className="text-gray-400">0 mnt</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-emerald-600 font-medium">
-                    {formatRupiah(item.earnings_total)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-rose-600 font-medium">
-                    {formatRupiah(item.deduction_total)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-bold text-[var(--primary)]">
-                    {formatRupiah(item.net_pay)}
-                  </td>
-                  <td className="px-3 py-2.5 text-center">
-                    <button
-                      type="button"
-                      onClick={() => openDetailModal(item)}
-                      className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
-                    >
-                      {isSuperadmin && !frozen ? (
-                        <>
-                          <Edit2 className="h-3.5 w-3.5 text-amber-600" />
-                          Periksa & Override
-                        </>
-                      ) : (
-                        <>
-                          <Eye className="h-3.5 w-3.5" />
-                          Lihat Komponen
-                        </>
-                      )}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={itemColumns}
+        data={items}
+        exportFilename={`Payroll_Run_${runId}_${new Date().toISOString().slice(0, 10)}`}
+      />
 
       {/* Modal Pemeriksaan / Override Komponen Karyawan */}
       {selectedItem && (
         <Modal
           title={`Periksa Rincian Gaji — ${selectedItem.full_name}`}
           onClose={() => setSelectedItem(null)}
+          maxWidth="sm:max-w-4xl"
         >
           <div className="space-y-4 text-[13px]">
             {loadingDetails ? (
@@ -286,110 +353,423 @@ export function RunManager({
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="mb-2 text-[12px] font-bold uppercase tracking-wider text-gray-500">
-                    Rincian Komponen Terkalkulasi
-                  </h4>
-                  <table className="w-full text-left text-[12px]">
-                    <thead className="border-b bg-gray-100 text-gray-600">
-                      <tr>
-                        <th className="p-1.5">Komponen</th>
-                        <th className="p-1.5">Ref / Sumber</th>
-                        <th className="p-1.5 text-right">Nominal</th>
-                        {isSuperadmin && !frozen && <th className="p-1.5 text-center">Aksi</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {details.map((d) => (
-                        <tr key={d.id}>
-                          <td className="p-1.5 font-medium text-gray-800">
-                            {d.component_code}
-                            {componentQtyLabel(d.component_code, d.quantity, d.unit_rate) && (
-                              <span className="ml-1 text-[11px] text-gray-400">
-                                ({componentQtyLabel(d.component_code, d.quantity, d.unit_rate)})
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-1.5 text-[11px] text-gray-500">
-                            {d.source_ref === "manual_override" ? (
-                              <span className="rounded bg-amber-100 px-1 py-0.5 text-amber-800 font-semibold">
-                                Override HR
-                              </span>
-                            ) : (
-                              d.source_ref || "kalkulasi"
-                            )}
-                          </td>
-                          <td
-                            className={`p-1.5 text-right font-medium ${
-                              Number(d.amount) >= 0 ? "text-emerald-600" : "text-rose-600"
-                            }`}
-                          >
-                            {formatRupiah(d.amount)}
-                          </td>
-                          {isSuperadmin && !frozen && (
-                            <td className="p-1.5 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteDetail(d.id)}
-                                className="text-rose-600 hover:text-rose-800"
-                                title="Hapus Komponen"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                {(() => {
+                  const earnings = details.filter((d) => Number(d.amount) >= 0);
+                  const deductions = details.filter((d) => Number(d.amount) < 0);
+                  const totalEarnings = earnings.reduce((acc, d) => acc + Number(d.amount), 0);
+                  const totalDeductions = deductions.reduce((acc, d) => acc + Math.abs(Number(d.amount)), 0);
+                  const takeHomePay = totalEarnings - totalDeductions;
 
-                {/* Form Override / Tambah Komponen Manual (Khusus HR Superadmin sebelum approved) */}
-                {isSuperadmin && !frozen && (
-                  <div className="rounded border border-amber-200 bg-amber-50/50 p-3">
-                    <h5 className="mb-2 text-[12px] font-bold text-amber-900">
-                      Tambah / Override Komponen Manual (Superadmin)
-                    </h5>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700">Kode Komponen</label>
-                        <select
-                          value={compCode}
-                          onChange={(e) => setCompCode(e.target.value)}
-                          className="mt-1 w-full rounded border border-gray-300 p-1.5 text-[12px]"
-                        >
-                          <option value="BONUS_MANUAL">BONUS_MANUAL (Penghasilan +)</option>
-                          <option value="INSENTIF_TGL_MERAH">INSENTIF_TGL_MERAH (Penghasilan +)</option>
-                          <option value="TUNJANGAN_KHUSUS">TUNJANGAN_KHUSUS (Penghasilan +)</option>
-                          <option value="KASBON">KASBON (Potongan -)</option>
-                          <option value="POTONGAN_LAIN">POTONGAN_LAIN (Potongan -)</option>
-                        </select>
+                  const renderTable = (
+                    list: ItemDetail[],
+                    emptyText: string,
+                    isDeduction: boolean,
+                  ) => (
+                    <table className="w-full text-left text-[12px]">
+                      <thead className="border-b bg-gray-100 text-gray-600">
+                        <tr>
+                          <th className="p-1.5">Komponen</th>
+                          <th className="p-1.5 text-right">Nominal</th>
+                          {isSuperadmin && !frozen && <th className="p-1.5 text-center w-16">Aksi</th>}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {list.length === 0 ? (
+                          <tr>
+                            <td colSpan={isSuperadmin && !frozen ? 3 : 2} className="p-3 text-center text-[11px] text-gray-400">
+                              {emptyText}
+                            </td>
+                          </tr>
+                        ) : (
+                          list.map((d) => {
+                            const isEditing = editingDetailId === d.id;
+                            const itemColumns: Column<RunItem>[] = [
+    {
+      key: "full_name",
+      label: "Karyawan",
+      render: (item) => <span className="font-medium text-gray-900">{item.full_name}</span>,
+    },
+    {
+      key: "payable_minutes",
+      label: "Menit Hadir",
+      numeric: true,
+      render: (item) => (
+        <span className="text-gray-600">
+          {item.payable_minutes} mnt ({Math.round(item.payable_minutes / 60)} jam)
+        </span>
+      ),
+      exportValue: (item) => item.payable_minutes,
+    },
+    {
+      key: "late_minutes",
+      label: "Menit Telat",
+      numeric: true,
+      render: (item) =>
+        item.late_minutes > 0 ? (
+          <span className="font-semibold text-rose-600">{item.late_minutes} mnt</span>
+        ) : (
+          <span className="text-gray-400">0 mnt</span>
+        ),
+      exportValue: (item) => item.late_minutes,
+    },
+    {
+      key: "earnings_total",
+      label: "Penghasilan",
+      money: true,
+      render: (item) => (
+        <span className="font-medium text-emerald-600">{formatRupiah(item.earnings_total)}</span>
+      ),
+      exportValue: (item) => Number(item.earnings_total),
+    },
+    {
+      key: "deduction_total",
+      label: "Potongan",
+      money: true,
+      render: (item) => (
+        <span className="font-medium text-rose-600">{formatRupiah(item.deduction_total)}</span>
+      ),
+      exportValue: (item) => Number(item.deduction_total),
+    },
+    {
+      key: "net_pay",
+      label: "Gaji Netto",
+      money: true,
+      render: (item) => (
+        <span className="font-bold text-[var(--primary)]">{formatRupiah(item.net_pay)}</span>
+      ),
+      exportValue: (item) => Number(item.net_pay),
+    },
+    {
+      key: "actions",
+      label: "Pemeriksaan / Override",
+      includeInExport: false,
+      sticky: "right",
+      render: (item) => (
+        <button
+          type="button"
+          onClick={() => openDetailModal(item)}
+          className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
+        >
+          {isSuperadmin && !frozen ? (
+            <>
+              <Edit2 className="h-3.5 w-3.5 text-amber-600" />
+              Periksa & Override
+            </>
+          ) : (
+            <>
+              <Eye className="h-3.5 w-3.5" />
+              Lihat Komponen
+            </>
+          )}
+        </button>
+      ),
+    },
+  ];
+
+  return (
+                              <tr key={d.id} className="hover:bg-gray-50/70">
+                                <td className="p-1.5 font-medium text-gray-800">
+                                  <div>{d.component_code}</div>
+                                  <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                                    {d.source_ref === "manual_override" ? (
+                                      <span className="rounded bg-amber-100 px-1 py-0.2 font-semibold text-amber-800">
+                                        Override HR
+                                      </span>
+                                    ) : (
+                                      <span>{d.source_ref || "kalkulasi"}</span>
+                                    )}
+                                    {d.quantity > 1 && (
+                                      <span>({d.quantity} x @{formatRupiah(d.unit_rate)})</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td
+                                  className={`p-1.5 text-right font-medium ${
+                                    isDeduction ? "text-rose-600" : "text-emerald-600"
+                                  }`}
+                                >
+                                  {isEditing ? (
+                                    <div className="flex items-center justify-end gap-1">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={editAmount}
+                                        onChange={(e) => setEditAmount(formatThousands(e.target.value))}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") handleSaveEdit(d, isDeduction);
+                                          if (e.key === "Escape") {
+                                            setEditingDetailId(null);
+                                            setEditAmount("");
+                                          }
+                                        }}
+                                        className="w-28 rounded border border-amber-400 bg-white px-2 py-0.5 text-right text-[12px] text-gray-900 tabular-nums focus:outline-none"
+                                        autoFocus
+                                      />
+                                      <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() => handleSaveEdit(d, isDeduction)}
+                                        className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[11px] font-medium text-white hover:bg-emerald-700"
+                                        title="Simpan"
+                                      >
+                                        <Check className="h-3 w-3" />
+                                        Simpan
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() => {
+                                          setEditingDetailId(null);
+                                          setEditAmount("");
+                                        }}
+                                        className="inline-flex items-center rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-gray-600 hover:bg-gray-100"
+                                        title="Batal"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="whitespace-nowrap">{formatRupiah(d.amount)}</span>
+                                  )}
+                                </td>
+                                {isSuperadmin && !frozen && !isEditing && (
+                                  <td className="p-1.5 text-center whitespace-nowrap">
+                                    <div className="inline-flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingDetailId(d.id);
+                                          setEditAmount(formatThousands(String(Math.abs(Number(d.amount)))));
+                                        }}
+                                        className="text-amber-600 hover:text-amber-800"
+                                        title="Edit Nominal"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteDetail(d.id)}
+                                        className="text-rose-600 hover:text-rose-800"
+                                        title="Hapus Komponen"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  );
+
+                  const itemColumns: Column<RunItem>[] = [
+    {
+      key: "full_name",
+      label: "Karyawan",
+      render: (item) => <span className="font-medium text-gray-900">{item.full_name}</span>,
+    },
+    {
+      key: "payable_minutes",
+      label: "Menit Hadir",
+      numeric: true,
+      render: (item) => (
+        <span className="text-gray-600">
+          {item.payable_minutes} mnt ({Math.round(item.payable_minutes / 60)} jam)
+        </span>
+      ),
+      exportValue: (item) => item.payable_minutes,
+    },
+    {
+      key: "late_minutes",
+      label: "Menit Telat",
+      numeric: true,
+      render: (item) =>
+        item.late_minutes > 0 ? (
+          <span className="font-semibold text-rose-600">{item.late_minutes} mnt</span>
+        ) : (
+          <span className="text-gray-400">0 mnt</span>
+        ),
+      exportValue: (item) => item.late_minutes,
+    },
+    {
+      key: "earnings_total",
+      label: "Penghasilan",
+      money: true,
+      render: (item) => (
+        <span className="font-medium text-emerald-600">{formatRupiah(item.earnings_total)}</span>
+      ),
+      exportValue: (item) => Number(item.earnings_total),
+    },
+    {
+      key: "deduction_total",
+      label: "Potongan",
+      money: true,
+      render: (item) => (
+        <span className="font-medium text-rose-600">{formatRupiah(item.deduction_total)}</span>
+      ),
+      exportValue: (item) => Number(item.deduction_total),
+    },
+    {
+      key: "net_pay",
+      label: "Gaji Netto",
+      money: true,
+      render: (item) => (
+        <span className="font-bold text-[var(--primary)]">{formatRupiah(item.net_pay)}</span>
+      ),
+      exportValue: (item) => Number(item.net_pay),
+    },
+    {
+      key: "actions",
+      label: "Pemeriksaan / Override",
+      includeInExport: false,
+      sticky: "right",
+      render: (item) => (
+        <button
+          type="button"
+          onClick={() => openDetailModal(item)}
+          className="inline-flex items-center gap-1 rounded bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-200"
+        >
+          {isSuperadmin && !frozen ? (
+            <>
+              <Edit2 className="h-3.5 w-3.5 text-amber-600" />
+              Periksa & Override
+            </>
+          ) : (
+            <>
+              <Eye className="h-3.5 w-3.5" />
+              Lihat Komponen
+            </>
+          )}
+        </button>
+      ),
+    },
+  ];
+
+  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {/* Kolom Kiri: Penambah */}
+                        <div className="rounded-lg border border-emerald-200 bg-white overflow-hidden">
+                          <div className="flex items-center justify-between border-b border-emerald-100 bg-emerald-50 px-3 py-2">
+                            <span className="text-[12px] font-bold text-emerald-800">
+                              PENAMBAH (PENDAPATAN +)
+                            </span>
+                            <span className="text-[12px] font-bold text-emerald-700">
+                              {formatRupiah(totalEarnings)}
+                            </span>
+                          </div>
+                          {renderTable(earnings, "Belum ada komponen penambah", false)}
+                        </div>
+
+                        {/* Kolom Kanan: Pengurang */}
+                        <div className="rounded-lg border border-rose-200 bg-white overflow-hidden">
+                          <div className="flex items-center justify-between border-b border-rose-100 bg-rose-50 px-3 py-2">
+                            <span className="text-[12px] font-bold text-rose-800">
+                              PENGURANG (POTONGAN -)
+                            </span>
+                            <span className="text-[12px] font-bold text-rose-700">
+                              -{formatRupiah(totalDeductions)}
+                            </span>
+                          </div>
+                          {renderTable(deductions, "Tidak ada potongan", true)}
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-medium text-gray-700">Nominal (+ atau -)</label>
-                        <input
-                          type="number"
-                          value={compAmount}
-                          onChange={(e) => setCompAmount(e.target.value)}
-                          placeholder="Cth: 50000 atau -25000"
-                          className="mt-1 w-full rounded border border-gray-300 p-1.5 text-[12px]"
-                        />
-                      </div>
-                      <div className="flex items-end">
-                        <button
-                          type="button"
-                          onClick={handleUpsertDetail}
-                          disabled={loading || !compAmount}
-                          className="inline-flex w-full items-center justify-center gap-1 rounded bg-amber-700 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-amber-800 disabled:opacity-50"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Terapkan
-                        </button>
+
+                      {/* Grand Total Take Home Pay */}
+                      <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5">
+                        <span className="text-[13px] font-bold text-emerald-900">
+                          GRAND TOTAL TAKE HOME PAY
+                        </span>
+                        <span className="text-[16px] font-extrabold text-emerald-700 tabular-nums">
+                          {formatRupiah(takeHomePay)}
+                        </span>
                       </div>
                     </div>
-                    <p className="mt-1 text-[10px] text-amber-700">
-                      Gunakan nilai positif untuk penambahan (bonus/insentif) dan nilai negatif untuk potongan kasbon/denda.
-                    </p>
+                  );
+                })()}
+
+                {/* Form Override / Tambah Komponen Manual Terpisah (Penambah & Pengurang) */}
+                {isSuperadmin && !frozen && (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {/* Tambah Penambah (+) */}
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
+                      <h5 className="mb-2 text-[12px] font-bold text-emerald-900">
+                        + Tambah / Override Penambah
+                      </h5>
+                      <div className="space-y-2">
+                        <select
+                          value={addCode}
+                          onChange={(e) => setAddCode(e.target.value)}
+                          className="w-full rounded border border-emerald-300 bg-white p-1.5 text-[12px]"
+                        >
+                          <option value="BONUS_MANUAL">BONUS_MANUAL</option>
+                          <option value="INSENTIF_TGL_MERAH">INSENTIF_TGL_MERAH</option>
+                          <option value="TUNJANGAN_KHUSUS">TUNJANGAN_KHUSUS</option>
+                          <option value="LEMBUR">LEMBUR</option>
+                          <option value="GAPOK">GAPOK</option>
+                          <option value="TUNJ_JABATAN">TUNJ_JABATAN</option>
+                        </select>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={addAmount}
+                            onChange={(e) => setAddAmount(formatThousands(e.target.value))}
+                            placeholder="Nominal (cth: 50.000)"
+                            className="w-full rounded border border-emerald-300 bg-white p-1.5 text-[12px] tabular-nums"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpsertManual(addCode, addAmount, false)}
+                            disabled={loading || !addAmount}
+                            className="inline-flex shrink-0 items-center gap-1 rounded bg-emerald-600 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Tambah
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tambah Pengurang (-) */}
+                    <div className="rounded-lg border border-rose-200 bg-rose-50/40 p-3">
+                      <h5 className="mb-2 text-[12px] font-bold text-rose-900">
+                        - Tambah / Override Pengurang
+                      </h5>
+                      <div className="space-y-2">
+                        <select
+                          value={dedCode}
+                          onChange={(e) => setDedCode(e.target.value)}
+                          className="w-full rounded border border-rose-300 bg-white p-1.5 text-[12px]"
+                        >
+                          <option value="KASBON">KASBON</option>
+                          <option value="POTONGAN_LAIN">POTONGAN_LAIN</option>
+                          <option value="DENDA_TELAT">DENDA_TELAT</option>
+                        </select>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={dedAmount}
+                            onChange={(e) => setDedAmount(formatThousands(e.target.value))}
+                            placeholder="Nominal potongan (cth: 100.000)"
+                            className="w-full rounded border border-rose-300 bg-white p-1.5 text-[12px] tabular-nums"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpsertManual(dedCode, dedAmount, true)}
+                            disabled={loading || !dedAmount}
+                            className="inline-flex shrink-0 items-center gap-1 rounded bg-rose-600 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Potong
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
