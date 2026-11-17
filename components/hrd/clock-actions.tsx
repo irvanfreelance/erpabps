@@ -1,10 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MapPin, AlertCircle, Clock, CheckCircle2, Navigation } from "lucide-react";
+import { AlertCircle, CheckCircle2, Navigation } from "lucide-react";
 import { calculateDistanceMeter } from "@/lib/utils/geo";
 
 // Dynamic import untuk Leaflet map (client-only)
@@ -12,6 +12,63 @@ const AttendanceMap = dynamic(
   () => import("@/components/hrd/attendance-map").then((mod) => mod.AttendanceMap),
   { ssr: false, loading: () => <div className="h-[260px] w-full rounded-2xl bg-[#f0f0f0] animate-pulse" /> }
 );
+
+const PERMISSION_DENIED_MSG =
+  "Izin lokasi diblokir untuk situs ini. Buka ikon gembok/setelan situs > Izin > Lokasi > Izinkan, lalu muat ulang.";
+const SIGNAL_MSG = "Sinyal GPS belum didapat, coba dekat jendela/di luar ruangan";
+const HIGH_GEO: PositionOptions = { enableHighAccuracy: true, timeout: 30000, maximumAge: 30000 };
+const LOW_GEO: PositionOptions = { enableHighAccuracy: false, timeout: 20000, maximumAge: 30000 };
+
+type Coords = { lat: number; lng: number };
+
+function coordsFrom(pos: GeolocationPosition): Coords {
+  return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+}
+
+function messageForGeoError(err: GeolocationPositionError) {
+  if (err.code === err.PERMISSION_DENIED) return PERMISSION_DENIED_MSG;
+  return SIGNAL_MSG;
+}
+
+function requestFreshPosition(last: Coords | null): Promise<{ coords: Coords | null; error: string | null }> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve({ coords: last, error: last ? null : "Geolocation tidak didukung oleh perangkat/browser ini" });
+      return;
+    }
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      resolve({
+        coords: last,
+        error: last ? null : "Lokasi membutuhkan koneksi aman (HTTPS). Buka situs lewat alamat aman lalu muat ulang.",
+      });
+      return;
+    }
+
+    let settled = false;
+    const finish = (coords: Coords | null, error: string | null) => {
+      if (settled) return;
+      settled = true;
+      resolve({ coords: coords ?? last, error: coords || last ? null : error });
+    };
+
+    const low = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => finish(coordsFrom(pos), null),
+        (err) => finish(null, messageForGeoError(err)),
+        { enableHighAccuracy: false, timeout: 18000, maximumAge: 30000 },
+      );
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => finish(coordsFrom(pos), null),
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) finish(null, PERMISSION_DENIED_MSG);
+        else low();
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
+    );
+  });
+}
 
 type TodayData = {
   employee: {
@@ -51,10 +108,12 @@ export function ClockActions() {
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDateStr, setCurrentDateStr] = useState<string>("");
 
-  // Lokasi User
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // Lokasi User. Koordinat terakhir tidak dihapus saat error sesaat.
+  const [userCoords, setUserCoords] = useState<Coords | null>(null);
+  const coordsRef = useRef<Coords | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-  const [distance, setDistance] = useState<number | null>(null);
+  const [searching, setSearching] = useState(true);
+  const [locateAttempt, setLocateAttempt] = useState(0);
 
   // Modal alasan luar radius
   const [showOutsideModal, setShowOutsideModal] = useState(false);
@@ -111,48 +170,108 @@ export function ClockActions() {
   };
 
   useEffect(() => {
-    fetchData();
+    const id = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, []);
 
-  // Watch posisi user saat ini
+  // Watch posisi user. Akurasi tinggi dulu; timeout/unavailable jatuh ke akurasi rendah.
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setGeoError("Geolocation tidak didukung oleh perangkat/browser ini");
+    let cancelled = false;
+    let highId: number | null = null;
+    let lowId: number | null = null;
+    let fellBack = false;
+
+    const remember = (pos: GeolocationPosition) => {
+      if (cancelled) return;
+      const next = coordsFrom(pos);
+      coordsRef.current = next;
+      setUserCoords(next);
+      setGeoError(null);
+      setSearching(false);
+    };
+
+    const giveUp = (err: GeolocationPositionError) => {
+      if (cancelled || coordsRef.current) return;
+      setSearching(false);
+      setGeoError(messageForGeoError(err));
+    };
+
+    const startLow = () => {
+      if (cancelled || !navigator.geolocation) return;
+      if (!coordsRef.current) {
+        setGeoError(null);
+        setSearching(true);
+      }
+      navigator.geolocation.getCurrentPosition(remember, () => undefined, LOW_GEO);
+      lowId = navigator.geolocation.watchPosition(
+        remember,
+        (err) => giveUp(err),
+        LOW_GEO,
+      );
+    };
+
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      queueMicrotask(() => {
+        if (cancelled || coordsRef.current) return;
+        setSearching(false);
+        setGeoError("Lokasi membutuhkan koneksi aman (HTTPS). Buka situs lewat alamat aman lalu muat ulang.");
+      });
       return;
     }
 
-    const watcher = navigator.geolocation.watchPosition(
-      (pos) => {
-        setUserCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-        setGeoError(null);
-      },
+    if (!navigator.geolocation) {
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setSearching(false);
+        setGeoError("Geolocation tidak didukung oleh perangkat/browser ini");
+      });
+      return;
+    }
+
+    const perms = navigator.permissions;
+    if (perms && typeof perms.query === "function") {
+      perms
+        .query({ name: "geolocation" })
+        .then((status) => {
+          if (cancelled || coordsRef.current) return;
+          if (status.state === "denied") {
+            setSearching(false);
+            setGeoError(PERMISSION_DENIED_MSG);
+          }
+        })
+        .catch(() => undefined);
+    }
+
+    highId = navigator.geolocation.watchPosition(
+      remember,
       (err) => {
-        console.warn("Geolocation error:", err.message);
-        setGeoError("Tidak dapat mengakses GPS. Pastikan izin lokasi aktif.");
+        if (cancelled) return;
+        if (err.code === err.PERMISSION_DENIED) {
+          giveUp(err);
+          return;
+        }
+        if (!fellBack && (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE)) {
+          fellBack = true;
+          if (highId != null) {
+            navigator.geolocation.clearWatch(highId);
+            highId = null;
+          }
+          startLow();
+          return;
+        }
+        giveUp(err);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+      HIGH_GEO,
     );
 
-    return () => navigator.geolocation.clearWatch(watcher);
-  }, []);
-
-  // Hitung jarak user ke lokasi kantor / outlet
-  useEffect(() => {
-    if (userCoords && data?.employee.location_lat != null && data?.employee.location_lng != null) {
-      const dist = calculateDistanceMeter(
-        userCoords.lat,
-        userCoords.lng,
-        Number(data.employee.location_lat),
-        Number(data.employee.location_lng)
-      );
-      setDistance(dist);
-    } else {
-      setDistance(null);
-    }
-  }, [userCoords, data]);
+    return () => {
+      cancelled = true;
+      if (highId != null) navigator.geolocation.clearWatch(highId);
+      if (lowId != null) navigator.geolocation.clearWatch(lowId);
+    };
+  }, [locateAttempt]);
 
   if (loading) {
     return (
@@ -176,32 +295,75 @@ export function ClockActions() {
 
   const radiusMeter = employee.radius_meter || 100;
   const hasOfficeLoc = employee.location_lat != null && employee.location_lng != null;
+  const distance =
+    userCoords && hasOfficeLoc
+      ? calculateDistanceMeter(
+          userCoords.lat,
+          userCoords.lng,
+          Number(employee.location_lat),
+          Number(employee.location_lng),
+        )
+      : null;
   const isInsideRadius = !hasOfficeLoc || (distance != null && distance <= radiusMeter);
   const isOutside = hasOfficeLoc && distance != null && distance > radiusMeter;
 
   async function handlePunch(kind: "in" | "out", note?: string, lateRsn?: string) {
     if (submitting) return;
-
-    if (kind === "in" && isOutside) {
-      if (!employee.can_clock_outside_radius) {
-        toast.error(`Anda berada di luar radius (${distance}m, maks ${radiusMeter}m). Presensi ditolak.`);
-        return;
-      }
-      if (!note) {
-        setShowOutsideModal(true);
-        return;
-      }
-    }
-
     setSubmitting(true);
     try {
+      let coords = coordsRef.current;
+      if (!coords) {
+        setSearching(true);
+        const fresh = await requestFreshPosition(coordsRef.current);
+        coords = fresh.coords;
+        if (coords) {
+          coordsRef.current = coords;
+          setUserCoords(coords);
+          setGeoError(null);
+          setSearching(false);
+        } else if (fresh.error) {
+          setSearching(false);
+          setGeoError(fresh.error);
+          toast.error(fresh.error);
+          return;
+        }
+      }
+      if (!coords) {
+        setSearching(false);
+        setGeoError(SIGNAL_MSG);
+        toast.error(SIGNAL_MSG);
+        return;
+      }
+
+      const punchDistance =
+        hasOfficeLoc
+          ? calculateDistanceMeter(
+              coords.lat,
+              coords.lng,
+              Number(employee.location_lat),
+              Number(employee.location_lng),
+            )
+          : null;
+      const punchOutside = hasOfficeLoc && punchDistance != null && punchDistance > radiusMeter;
+
+      if (kind === "in" && punchOutside) {
+        if (!employee.can_clock_outside_radius) {
+          toast.error(`Anda berada di luar radius (${punchDistance}m, maks ${radiusMeter}m). Presensi ditolak.`);
+          return;
+        }
+        if (!note) {
+          setShowOutsideModal(true);
+          return;
+        }
+      }
+
       const res = await fetch("/api/attendances", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind,
-          lat: userCoords?.lat,
-          lng: userCoords?.lng,
+          lat: coords.lat,
+          lng: coords.lng,
           outsideRadiusNote: note,
           lateReason: lateRsn,
         }),
@@ -311,17 +473,30 @@ export function ClockActions() {
                 <Navigation className="h-3 w-3" />
                 {distance}m dari titik ({isInsideRadius ? "Di dalam radius" : "Di luar radius"})
               </span>
-            ) : geoError ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/90 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
-                <AlertCircle className="h-3 w-3" /> GPS tidak aktif
-              </span>
-            ) : (
+            ) : searching ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-gray-600/80 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
                 Mencari sinyal GPS...
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-600/90 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
+                <AlertCircle className="h-3 w-3" /> Lokasi belum siap
               </span>
             )}
           </div>
         </div>
+
+        {(geoError || (searching && !userCoords)) && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] text-amber-900">
+            <p className="m-0">{searching && !geoError ? "Mencari sinyal GPS..." : geoError}</p>
+            <button
+              type="button"
+              onClick={() => setLocateAttempt((n) => n + 1)}
+              className="mt-2 rounded-lg bg-white px-3 py-1.5 text-[12px] font-semibold text-amber-900 ring-1 ring-amber-300"
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
 
         {/* Schedule Info */}
         <div className="text-center my-4">
