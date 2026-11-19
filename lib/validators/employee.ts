@@ -79,29 +79,29 @@ const employeeFields = z.object({
         if (typeof s !== "string") return s;
         return s.replace(/[\s()-]/g, "");
       },
-      z.string().regex(RE.phoneId, "Nomor HP tidak valid (contoh 08xxxxxxxxxx)").max(20).nullable().optional(),
+      z.string().max(30).nullable().optional(),
     ),
-    nik: z.preprocess(blankToNull, z.string().regex(RE.nik, "NIK wajib 16 digit angka").nullable().optional()),
+    nik: z.preprocess(blankToNull, z.string().max(30).nullable().optional()),
     npwp: z.preprocess(
       (v) => {
         const s = blankToNull(v);
         return typeof s === "string" ? s.replace(/\D/g, "") : s;
       },
-      z.string().regex(RE.npwp, "NPWP 15 atau 16 digit").nullable().optional(),
+      z.string().max(30).nullable().optional(),
     ),
     bpjsKesehatanId: z.preprocess(
       (v) => {
         const s = blankToNull(v);
         return typeof s === "string" ? s.replace(/\D/g, "") : s;
       },
-      z.string().regex(RE.bpjsKesehatan, "Nomor BPJS Kesehatan 13 digit").nullable().optional(),
+      z.string().max(30).nullable().optional(),
     ),
     bpjsTkId: z.preprocess(
       (v) => {
         const s = blankToNull(v);
         return typeof s === "string" ? s.replace(/\D/g, "") : s;
       },
-      z.string().regex(RE.bpjsTk, "Nomor BPJS Ketenagakerjaan 11 digit").nullable().optional(),
+      z.string().max(30).nullable().optional(),
     ),
     taxStatus: optionalEnum(TAX_STATUSES, "status pajak"),
     bankName: optionalEnum(BANK_NAMES, "bank"),
@@ -110,7 +110,7 @@ const employeeFields = z.object({
         const s = blankToNull(v);
         return typeof s === "string" ? s.replace(/\s+/g, "") : s;
       },
-      z.string().regex(RE.bankAccount, "Nomor rekening 8–20 digit").nullable().optional(),
+      z.string().max(30).nullable().optional(),
     ),
     bankAccountName: optionalName("Atas nama rekening"),
   });
