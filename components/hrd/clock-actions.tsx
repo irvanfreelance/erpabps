@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, Navigation, RefreshCw } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, Navigation, RefreshCw } from "lucide-react";
 import { calculateDistanceMeter } from "@/lib/utils/geo";
 
 // Dynamic import untuk Leaflet map (client-only)
@@ -114,6 +114,7 @@ export function ClockActions() {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [searching, setSearching] = useState(true);
   const [locateAttempt, setLocateAttempt] = useState(0);
+  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number; seq: number } | null>(null);
 
   // Modal alasan luar radius
   const [showOutsideModal, setShowOutsideModal] = useState(false);
@@ -306,9 +307,18 @@ export function ClockActions() {
       : null;
   const isInsideRadius = !hasOfficeLoc || (distance != null && distance <= radiusMeter);
   const isOutside = hasOfficeLoc && distance != null && distance > radiusMeter;
+  const isOverTolerance = hasOfficeLoc && distance != null && distance > 10000 && !employee.can_clock_outside_radius;
 
   async function handlePunch(kind: "in" | "out", note?: string, lateRsn?: string) {
     if (submitting) return;
+    if (kind === "in" && isOverTolerance) {
+      toast.error(`Jarak Anda (${distance}m) melebihi batas toleransi 10 km.`);
+      return;
+    }
+    if (kind === "in" && isOutside && !note) {
+      setShowOutsideModal(true);
+      return;
+    }
     setSubmitting(true);
     try {
       let coords = coordsRef.current;
@@ -380,7 +390,7 @@ export function ClockActions() {
         return;
       }
 
-      toast.success(kind === "in" ? "Berhasil Clock-in!" : "Berhasil Clock-out!");
+      toast.success(kind === "in" ? "Berhasil Hadir!" : "Berhasil Pulang!");
       setShowOutsideModal(false);
       setShowLateModal(false);
       setOutsideNote("");
@@ -458,6 +468,7 @@ export function ClockActions() {
             locLat={employee.location_lat != null ? Number(employee.location_lat) : null}
             locLng={employee.location_lng != null ? Number(employee.location_lng) : null}
             radiusMeter={radiusMeter}
+            focusTarget={mapFocus}
           />
 
           {/* Badge Status Radius di atas peta */}
@@ -482,16 +493,35 @@ export function ClockActions() {
                 <AlertCircle className="h-3 w-3" /> Lokasi belum siap
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => setLocateAttempt((n) => n + 1)}
-              disabled={searching}
-              title="Sync ulang posisi GPS"
-              aria-label="Sync ulang posisi GPS"
-              className="pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm backdrop-blur-md hover:bg-white active:scale-95 disabled:opacity-60"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${searching ? "animate-spin" : ""}`} />
-            </button>
+            <div className="pointer-events-auto flex items-center gap-1.5">
+              {hasOfficeLoc && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMapFocus((prev) => ({
+                      lat: Number(employee.location_lat),
+                      lng: Number(employee.location_lng),
+                      seq: (prev?.seq ?? 0) + 1,
+                    }))
+                  }
+                  title="Arahkan peta ke lokasi kantor"
+                  aria-label="Arahkan peta ke lokasi kantor"
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm backdrop-blur-md hover:bg-white active:scale-95"
+                >
+                  <Building2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setLocateAttempt((n) => n + 1)}
+                disabled={searching}
+                title="Sync ulang posisi GPS"
+                aria-label="Sync ulang posisi GPS"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm backdrop-blur-md hover:bg-white active:scale-95 disabled:opacity-60"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${searching ? "animate-spin" : ""}`} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -523,36 +553,36 @@ export function ClockActions() {
           </p>
         </div>
 
-        {/* Warning jika luar radius tapi punya izin khusus */}
-        {isOutside && !isClockedIn && employee.can_clock_outside_radius && (
+        {/* Warning jika luar radius tapi masih dalam toleransi 10 km */}
+        {isOutside && !isClockedIn && !isOverTolerance && (
           <div className="mb-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-[12px] text-amber-800 border border-amber-200">
             <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
             <span>
-              Anda berada di luar radius kantor ({distance}m). Anda memiliki izin absen luar radius. Wajib menyertakan alasan keterangan.
+              Anda berada di luar radius kantor ({distance}m). Presensi tetap dapat dilakukan (toleransi maks 10 km) dengan menyertakan alasan keterangan.
             </span>
           </div>
         )}
 
-        {/* Action Button: Hijau (Masuk) -> Merah (Pulang) -> Disabled (Selesai) */}
+        {/* Action Button: Hijau (Hadir) -> Merah (Pulang) -> Disabled (Selesai) */}
         <div className="mt-2">
           {!isClockedIn ? (
             <button
               type="button"
-              disabled={submitting || (isOutside && !employee.can_clock_outside_radius)}
+              disabled={submitting || isOverTolerance}
               onClick={() => handlePunch("in")}
               className={`w-full rounded-2xl py-3.5 text-[15px] font-bold text-white shadow-md transition-all active:scale-[0.99] ${
-                isOutside && !employee.can_clock_outside_radius
+                isOverTolerance
                   ? "bg-gray-300 cursor-not-allowed text-gray-500 shadow-none"
                   : "bg-[#10b981] hover:bg-[#059669] shadow-emerald-500/25"
               }`}
             >
               {submitting
                 ? "Memproses..."
-                : isOutside && !employee.can_clock_outside_radius
-                  ? "Di Luar Radius Presensi"
-                  : isOutside && employee.can_clock_outside_radius
-                    ? "Clock In (Luar Radius)"
-                    : "Clock In"}
+                : isOverTolerance
+                  ? "Di Luar Toleransi (> 10 km)"
+                  : isOutside
+                    ? "Hadir (Luar Radius)"
+                    : "Hadir"}
             </button>
           ) : !isClockedOut ? (
             <button
@@ -561,7 +591,7 @@ export function ClockActions() {
               onClick={() => handlePunch("out")}
               className="w-full rounded-2xl bg-[#ef4444] py-3.5 text-[15px] font-bold text-white shadow-md shadow-red-500/25 hover:bg-[#dc2626] transition-all active:scale-[0.99]"
             >
-              {submitting ? "Memproses..." : "Clock Out"}
+              {submitting ? "Memproses..." : "Pulang"}
             </button>
           ) : (
             <button
@@ -605,7 +635,7 @@ export function ClockActions() {
                 onClick={() => handlePunch("in", outsideNote, lateReason)}
                 className="flex-1 rounded-xl bg-[#10b981] py-2.5 text-[13px] font-semibold text-white shadow-sm hover:bg-[#059669] disabled:bg-gray-300"
               >
-                {submitting ? "Menyimpan..." : "Kirim Clock In"}
+                {submitting ? "Menyimpan..." : "Kirim Hadir"}
               </button>
             </div>
           </div>

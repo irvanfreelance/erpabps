@@ -51,15 +51,11 @@ export function PwaInstallPrompt({ appName }: { appName: string }) {
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
 
-    // Detect iOS Safari (no beforeinstallprompt support) & general mobile browser
+    // Detect iOS (no beforeinstallprompt support on Safari or Chrome iOS)
     const ua = window.navigator.userAgent.toLowerCase();
     const isIos = /iphone|ipad|ipod/.test(ua);
-    const isSafari = /safari/.test(ua) && !/crios|fxios|edgios/.test(ua);
-    const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
-    if (isIos && isSafari) {
+    if (isIos) {
       setShowIosHint(true);
-    } else if (isMobile) {
-      setIsMobileBrowser(true);
     }
 
     return () => {
@@ -87,7 +83,7 @@ export function PwaInstallPrompt({ appName }: { appName: string }) {
     }
   };
 
-  if (dismissed || (!deferredPrompt && !showIosHint && !isMobileBrowser)) {
+  if (dismissed || (!deferredPrompt && !showIosHint)) {
     return null;
   }
 

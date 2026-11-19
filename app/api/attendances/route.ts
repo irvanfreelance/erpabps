@@ -168,9 +168,9 @@ export async function POST(req: Request) {
       const dist = calculateDistanceMeter(parsed.data.lat, parsed.data.lng, Number(emp.latitude), Number(emp.longitude));
       if (dist > emp.radius_meter) {
         isOutside = true;
-        if (!emp.can_clock_outside_radius) {
+        if (dist > 10000 && !emp.can_clock_outside_radius) {
           return NextResponse.json(
-            { error: `Anda berada di luar radius lokasi presensi (${dist}m, maks ${emp.radius_meter}m).` },
+            { error: `Anda berada di luar batas toleransi presensi (${dist}m, maks 10.000m).` },
             { status: 400 },
           );
         }

@@ -20,11 +20,24 @@ const userIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-function MapUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
+function MapUpdater({
+  center,
+  zoom,
+  focusTarget,
+}: {
+  center: [number, number];
+  zoom: number;
+  focusTarget?: { lat: number; lng: number; seq: number } | null;
+}) {
   const map = useMap();
   useEffect(() => {
     map.setView(center, zoom);
   }, [center, zoom, map]);
+  useEffect(() => {
+    if (focusTarget) {
+      map.setView([focusTarget.lat, focusTarget.lng], zoom);
+    }
+  }, [focusTarget, zoom, map]);
   return null;
 }
 
@@ -34,12 +47,14 @@ export function AttendanceMap({
   locLat,
   locLng,
   radiusMeter,
+  focusTarget,
 }: {
   userLat: number | null;
   userLng: number | null;
   locLat: number | null;
   locLng: number | null;
   radiusMeter: number;
+  focusTarget?: { lat: number; lng: number; seq: number } | null;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -65,7 +80,7 @@ export function AttendanceMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <MapUpdater center={center} zoom={zoom} />
+      <MapUpdater center={center} zoom={zoom} focusTarget={focusTarget} />
       {/* Lingkaran radius lokasi penempatan */}
       {locLat != null && locLng != null && (
         <>
