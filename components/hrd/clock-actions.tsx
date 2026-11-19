@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, Navigation } from "lucide-react";
+import { AlertCircle, CheckCircle2, Navigation, RefreshCw } from "lucide-react";
 import { calculateDistanceMeter } from "@/lib/utils/geo";
 
 // Dynamic import untuk Leaflet map (client-only)
@@ -482,6 +482,16 @@ export function ClockActions() {
                 <AlertCircle className="h-3 w-3" /> Lokasi belum siap
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => setLocateAttempt((n) => n + 1)}
+              disabled={searching}
+              title="Sync ulang posisi GPS"
+              aria-label="Sync ulang posisi GPS"
+              className="pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm backdrop-blur-md hover:bg-white active:scale-95 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${searching ? "animate-spin" : ""}`} />
+            </button>
           </div>
         </div>
 
